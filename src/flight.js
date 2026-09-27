@@ -23,7 +23,9 @@ const AXIS_X = new THREE.Vector3(1, 0, 0);
 const AXIS_Y = new THREE.Vector3(0, 1, 0);
 const AXIS_Z = new THREE.Vector3(0, 0, 1);
 const SUN_DIRECTION = new THREE.Vector3(0.35, 0.72, -0.6).normalize();
-const HOLE = { center: new THREE.Vector3(0, -196, 150), radius: 58, tilt: 0.34 };
+// Well below the route: its pull (which reaches 3.8 radii) must never touch the start or a station.
+const HOLE = { center: new THREE.Vector3(0, -300, 150), radius: 58, tilt: 0.34 };
+const RADAR_RANGE = 300;
 const BOUNDS = { center: new THREE.Vector3(0, 10, 180), radius: 330 };
 const START = { position: new THREE.Vector3(0, 2, -6), heading: new THREE.Vector3(0, 0, 1) };
 
@@ -91,6 +93,9 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
     vertical: 0,
     stick: { active: false, x: 0, y: 0 },
     prewarmed: false,
+    moved: false,
+    docked: false,
+    left: false,
     prewarmPromise: null,
     boost: false,
     speed: 0,
@@ -124,6 +129,9 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
       station: state.locked ? state.locked.station.id : null,
       dockable: state.dockable ? state.dockable.station.id : null,
       interacted: state.interacted,
+      moved: state.moved,
+      docked: state.docked,
+      left: state.left,
     });
   }
 
@@ -176,6 +184,9 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
   };
   const onWheel = (event) => {
     if (!state.active || state.inputLocked) return;
+    // Scrolling inside a report (or any panel) reads the content; only a scroll over open space
+    // counts as a flight input.
+    if (event.target.closest?.('.holo, [data-ui]')) return;
     event.preventDefault();
     if (state.mode === 'orbit') {
       noteInteraction();
@@ -343,6 +354,7 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
         state.tween = null;
         o.angle = entryAngle;
         state.mode = 'orbit';
+        state.docked = true;
         gsap.to(camera, { fov: 44, duration: 0.24, yoyo: true, repeat: 1, ease: 'power2.out', onUpdate: () => camera.updateProjectionMatrix() });
         emit();
       },
@@ -362,6 +374,7 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
     killTween();
     state.mode = 'transit';
     state.locked = null;
+    state.left = true;
     const from = ship.group.position.clone();
     const tangent = new THREE.Vector3().addScaledVector(o.e1, -Math.sin(o.angle)).addScaledVector(o.e2, Math.cos(o.angle)).normalize();
     const target = from.clone().addScaledVector(tangent, o.radius + 16).addScaledVector(o.normal, 3);
@@ -466,6 +479,10 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
     state.speed = THREE.MathUtils.lerp(state.speed, targetSpeed, 1 - Math.exp(-2.4 * delta));
     basis();
     ship.group.position.addScaledVector(state.forward, state.speed * delta);
+    if (!state.moved && state.speed > 8) {
+      state.moved = true;
+      emit();
+    }
     // Vertical thrusters move the ship along world up so altitude can change without a pitch input.
     if (Math.abs(state.vertical) > 0.001) ship.group.position.addScaledVector(WORLD_UP, state.vertical * FLIGHT.verticalSpeed * delta);
 
@@ -616,6 +633,7 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
     label.style.opacity = opacity.toFixed(2);
   }
 
+  const radarCache = { el: null, dots: new Map() };
   function updateDom() {
     let nearest = null;
     let nearestDist = Infinity;
@@ -648,6 +666,41 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
       hud.style.setProperty('--thr', THREE.MathUtils.clamp(state.throttle + (state.boost ? FLIGHT.boostAmount : 0), 0, 1).toFixed(3));
       const speedEl = hud.querySelector('[data-speed]');
       if (speedEl) speedEl.textContent = `${Math.round(state.speed * 24)} km/s`;
+    }
+
+    // Radar: a top-down plot around the ship with the nose pointing up. Distance is compressed
+    // (square root) so near stations spread out and far ones sit on the rim.
+    const radar = dom.radar?.();
+    if (radar) {
+      if (radar !== radarCache.el) {
+        radarCache.el = radar;
+        radarCache.dots = new Map([...radar.querySelectorAll('[data-id]')].map((el) => [el.dataset.id, el]));
+      }
+      basis();
+      const fwd = state.tmp.copy(state.forward).setY(0);
+      if (fwd.lengthSq() < 1e-4) fwd.set(0, 0, 1);
+      fwd.normalize();
+      const rx = -fwd.z;
+      const rz = fwd.x;
+      const reach = radar.clientWidth / 2 - 9;
+      const plot = (id, position, highlight) => {
+        const dot = radarCache.dots.get(id);
+        if (!dot) return;
+        const dx = position.x - ship.group.position.x;
+        const dy = position.y - ship.group.position.y;
+        const dz = position.z - ship.group.position.z;
+        const across = dx * rx + dz * rz;
+        const ahead = dx * fwd.x + dz * fwd.z;
+        const flat = Math.hypot(across, ahead) || 1;
+        const r = Math.sqrt(Math.min(1, flat / RADAR_RANGE)) * reach;
+        dot.style.transform = `translate(${((across / flat) * r).toFixed(1)}px, ${((-ahead / flat) * r).toFixed(1)}px)`;
+        const alt = dy > 8 ? 'up' : dy < -8 ? 'down' : 'level';
+        if (dot.dataset.alt !== alt) dot.dataset.alt = alt;
+        const on = highlight ? 'true' : 'false';
+        if (dot.dataset.near !== on) dot.dataset.near = on;
+      };
+      bodies.forEach((body) => plot(body.station.id, body.position, body === nearest));
+      plot('blackhole', HOLE.center, false);
     }
 
     const holeLabel = dom.label?.('blackhole');

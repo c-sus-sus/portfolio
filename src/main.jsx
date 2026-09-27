@@ -26,6 +26,86 @@ if (import.meta.env.DEV) {
 
 const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
 
+// Short prompts shown one at a time. `seconds` marks a prompt that clears on a timer; the others
+// clear when the visitor performs the action.
+const COACH = {
+  fly: { id: 'fly', step: '1 / 5', desktop: 'Hold W to fly. Move the cursor to steer.', touch: 'Hold Thrust to fly. Steer with the stick.' },
+  find: { id: 'find', step: '2 / 5', seconds: 8, desktop: 'Follow the radar to a station, or pick one from Quick travel.', touch: 'Follow the radar to a station, or tap one in the list.' },
+  dock: { id: 'dock', step: '3 / 5', desktop: 'In range. Press Space to dock.', touch: 'In range. Tap Dock.' },
+  read: { id: 'read', step: '4 / 5', seconds: 7, desktop: 'Scroll the report. Leave orbit when you are done.', touch: 'Scroll the report. Tap Leave orbit when you are done.' },
+  more: { id: 'more', step: '5 / 5', seconds: 7, desktop: 'Four more stations to explore. Help is in the top bar.', touch: 'Four more stations to explore. Help is in the top bar.' },
+};
+
+const HELP_LINES = {
+  desktop: [
+    ['fly', 'hold W'],
+    ['steer', 'move the cursor, or arrow keys'],
+    ['boost', 'hold Shift'],
+    ['brake', 'hold S'],
+    ['climb / descend', 'R / F'],
+    ['dock', 'Space when a station is in range'],
+    ['leave a station', 'any key, or Leave orbit'],
+  ],
+  touch: [
+    ['fly', 'hold Thrust'],
+    ['steer', 'left stick (up and down changes altitude)'],
+    ['boost', 'hold Boost'],
+    ['dock', 'tap Dock when a station is in range'],
+    ['leave a station', 'tap Leave orbit'],
+  ],
+};
+
+function HelpTerminal({ onClose }) {
+  const lines = isTouch ? HELP_LINES.touch : HELP_LINES.desktop;
+  return (
+    <section className="help" role="dialog" aria-modal="true" aria-label="Help" data-ui onClick={onClose}>
+      <div className="help-window mono" onClick={(event) => event.stopPropagation()}>
+        <header className="help-bar">
+          <span>pioneer-01 — help</span>
+          <button type="button" onClick={onClose} aria-label="Close help">close ✕</button>
+        </header>
+        <div className="help-body">
+          <p><b>pioneer-01:~$</b> help</p>
+          <p className="help-dim"># This portfolio is a small star system. Each station holds one section.</p>
+          <p className="help-head">FLY</p>
+          <dl>
+            {lines.map(([key, value]) => (
+              <React.Fragment key={key}>
+                <dt>{key}</dt>
+                <dd>{value}</dd>
+              </React.Fragment>
+            ))}
+          </dl>
+          <p className="help-head">FIND YOUR WAY</p>
+          <dl>
+            <dt>radar</dt>
+            <dd>your nose points up; dots are stations; ▲ ▼ means above or below you</dd>
+            <dt>quick travel</dt>
+            <dd>pick a station from the list and the autopilot flies you there</dd>
+            <dt>event horizon</dt>
+            <dd>fly into the black hole, far below, to return to Earth orbit</dd>
+          </dl>
+          <p className="help-head">STATIONS</p>
+          <dl>
+            {stations.map((station) => (
+              <React.Fragment key={station.id}>
+                <dt style={{ color: station.color }}>{station.index} {station.label}</dt>
+                <dd>{station.title}</dd>
+              </React.Fragment>
+            ))}
+          </dl>
+          <p className="help-head">SHORT ON TIME</p>
+          <dl>
+            <dt>pilot dossier</dt>
+            <dd>the whole résumé on one page, in the top bar</dd>
+          </dl>
+          <p><b>pioneer-01:~$</b> <i className="help-caret" /></p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // Left-thumb stick for phones: reports a unit vector (x right, y up) while held.
 function Joystick({ onChange }) {
   const baseRef = useRef(null);
@@ -88,11 +168,17 @@ function App() {
   const labelRefs = useRef({});
   const markerRef = useRef(null);
   const hudRef = useRef(null);
+  const radarRef = useRef(null);
   const goRef = useRef(null);
   const [phase, setPhase] = useState('loading');
   const [progress, setProgress] = useState(0);
   const [flight, setFlight] = useState({ mode: 'flight', station: null, dockable: null, interacted: false });
   const [dossierOpen, setDossierOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  // Coach prompts: timed ones are ticked off here; action ones clear when the flight reports the action.
+  const [coachSeen, setCoachSeen] = useState(() => {
+    try { return window.localStorage.getItem('pioneer-coach') === 'done' ? { all: true } : {}; } catch { return {}; }
+  });
   const [returning, setReturning] = useState(false);
 
   useEffect(() => {
@@ -116,6 +202,7 @@ function App() {
         label: (id) => labelRefs.current[id] || null,
         marker: () => markerRef.current,
         hud: () => hudRef.current,
+        radar: () => radarRef.current,
       },
     });
     sceneApi.current = api;
@@ -128,14 +215,50 @@ function App() {
 
   // The dossier takes over input while it is open.
   useEffect(() => {
-    sceneApi.current?.setInputLocked(dossierOpen);
+    sceneApi.current?.setInputLocked(dossierOpen || helpOpen);
     if (!dossierOpen) return undefined;
     const onKey = (event) => {
       if (event.key === 'Escape') setDossierOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dossierOpen]);
+  }, [dossierOpen, helpOpen]);
+
+  useEffect(() => {
+    if (!helpOpen) return undefined;
+    const onKey = (event) => { if (event.key === 'Escape') setHelpOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [helpOpen]);
+
+  // Which prompt, if any, the visitor needs right now.
+  const coach = useMemo(() => {
+    if (phase !== 'universe' || coachSeen.all || helpOpen || dossierOpen) return null;
+    if (flight.mode === 'orbit') return coachSeen.read ? null : COACH.read;
+    if (flight.mode !== 'flight') return null;
+    if (!flight.moved) return COACH.fly;
+    if (!flight.docked) {
+      if (flight.dockable) return COACH.dock;
+      return coachSeen.find ? null : COACH.find;
+    }
+    if (flight.left && !coachSeen.more) return COACH.more;
+    return null;
+  }, [phase, coachSeen, helpOpen, dossierOpen, flight.mode, flight.moved, flight.docked, flight.dockable, flight.left]);
+
+  useEffect(() => {
+    if (!coach?.seconds) return undefined;
+    const timer = window.setTimeout(() => {
+      setCoachSeen((seen) => {
+        const next = { ...seen, [coach.id]: true };
+        if (coach.id === 'more') {
+          next.all = true;
+          try { window.localStorage.setItem('pioneer-coach', 'done'); } catch { /* storage blocked */ }
+        }
+        return next;
+      });
+    }, coach.seconds * 1000);
+    return () => window.clearTimeout(timer);
+  }, [coach]);
 
   // Magnetic GO button: it leans toward a nearby cursor.
   useEffect(() => {
@@ -204,6 +327,9 @@ function App() {
           <nav className="topnav">
             <a href={profile.links.github} target="_blank" rel="noreferrer">GitHub</a>
             <a href={profile.links.linkedin} target="_blank" rel="noreferrer">LinkedIn</a>
+            <button type="button" className={`topnav-btn ${helpOpen ? 'active' : ''}`} onClick={() => setHelpOpen((open) => !open)}>
+              Help
+            </button>
             <button type="button" className={`topnav-btn ${dossierOpen ? 'active' : ''}`} onClick={() => setDossierOpen((open) => !open)}>
               Pilot dossier
             </button>
@@ -252,11 +378,21 @@ function App() {
             </h2>
           </div>
 
-          <p className={`hint mono ${flight.interacted || flight.mode !== 'flight' ? 'hidden' : ''}`}>
-            {isTouch
-              ? 'Stick steers · hold Thrust to fly · ▲ ▼ change altitude · Dock appears when a station is in range'
-              : 'Cursor or arrow keys steer · W thrust · Shift boost · R / F climb or descend · Space docks'}
-          </p>
+          {coach && (
+            <p key={coach.id} className="coach mono" role="status">
+              <span>{coach.step}</span>
+              {isTouch ? coach.touch : coach.desktop}
+            </p>
+          )}
+
+          <div ref={radarRef} className="radar" aria-hidden="true">
+            <i className="radar-ring" />
+            <i className="radar-nose" />
+            {stations.map((station) => (
+              <b key={`radar-${station.id}`} data-id={station.id} style={{ '--accent': station.color }} />
+            ))}
+            <b data-id="blackhole" className="radar-hole" />
+          </div>
 
           {stations.map((station) => {
             const dockable = flight.dockable === station.id && flight.mode === 'flight';
@@ -351,9 +487,7 @@ function App() {
               )}
               <Joystick onChange={(x, y, active) => sceneApi.current?.setStick(x, y, active)} />
               <div className="touch-cluster">
-                <HoldButton className="tbtn mono" label="Climb" onHold={(held) => sceneApi.current?.setVertical(held ? 1 : 0)}>▲</HoldButton>
                 <HoldButton className="tbtn mono" label="Boost" onHold={(held) => sceneApi.current?.setBoostHeld(held)}>Boost</HoldButton>
-                <HoldButton className="tbtn mono" label="Descend" onHold={(held) => sceneApi.current?.setVertical(held ? -1 : 0)}>▼</HoldButton>
                 <HoldButton className="thrust-btn mono" label="Thrust" onHold={(held) => sceneApi.current?.setThrustHeld(held)}>Thrust</HoldButton>
               </div>
             </div>
@@ -385,6 +519,7 @@ function App() {
       )}
 
       {dossierOpen && <Dossier onClose={() => setDossierOpen(false)} />}
+      {helpOpen && <HelpTerminal onClose={() => setHelpOpen(false)} />}
     </main>
   );
 }
