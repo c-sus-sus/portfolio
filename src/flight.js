@@ -1244,6 +1244,14 @@ function createAsteroidFields() {
   const material = new THREE.MeshStandardMaterial({ color: 0x3a3e46, roughness: 0.88, metalness: 0.04, vertexColors: true });
   const rand = seeded(7);
   const placements = [];
+  // Keep every station's orbit and its docked camera clear of rocks.
+  const nearStation = (x, y, z) => stations.some((station) => {
+    const clear = station.radius * 3.2 + 18;
+    const dx = x - station.position[0];
+    const dy = y - station.position[1];
+    const dz = z - station.position[2];
+    return dx * dx + dy * dy + dz * dz < clear * clear;
+  });
 
   // Debris orbiting outside the accretion disk, in the disk's tilted plane.
   const tilt = new THREE.Matrix4().makeRotationX(HOLE.tilt).multiply(new THREE.Matrix4().makeRotationZ(0.4));
@@ -1252,6 +1260,7 @@ function createAsteroidFields() {
     const angle = rand() * Math.PI * 2;
     const radius = HOLE.radius * 4.4 + rand() * HOLE.radius * 2.6;
     v.set(Math.cos(angle) * radius, (rand() - 0.5) * 10, Math.sin(angle) * radius).applyMatrix4(tilt).add(HOLE.center);
+    if (nearStation(v.x, v.y, v.z)) continue;
     placements.push({
       x: v.x, y: v.y, z: v.z,
       s: 1.0 + rand() * 4.0,
@@ -1267,6 +1276,7 @@ function createAsteroidFields() {
     const y = -10 + rand() * 70;
     const z = -40 + rand() * 420;
     if (Math.abs(x) < 14 && z < 40) continue;
+    if (nearStation(x, y, z)) continue;
     placements.push({
       x, y, z,
       s: 0.5 + rand() * 2.6,
