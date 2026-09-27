@@ -1422,3 +1422,43 @@ h1, h2, h3, p { margin: 0; }
 .help-jump button:disabled { opacity: 0.45; cursor: default; }
 
 .help-body a { color: #7ee0a6; text-underline-offset: 3px; }
+
+/* ---------------------------------------------------------------------------
+   Reports: larger on desktop, brighter text, highlighted keywords
+--------------------------------------------------------------------------- */
+
+mark {
+  background: none;
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: inset 0 -0.42em 0 color-mix(in srgb, var(--accent), transparent 72%);
+}
+
+.holo-frame { background: linear-gradient(160deg, rgba(8, 14, 30, 0.9), rgba(4, 8, 18, 0.84)); }
+.holo-blurb { color: rgba(242, 246, 251, 0.86); }
+.entry ul, .entry p { color: rgba(242, 246, 251, 0.84); }
+.entry ul li::marker { color: var(--accent); }
+.entry header strong { font-weight: 600; color: var(--ink); }
+.entry header span { color: var(--ink-2); }
+
+@media (min-width: 761px) {
+  .holo {
+    width: min(640px, 44vw);
+    transform: translate(0, -50%) perspective(1600px) rotateY(-4deg);
+  }
+  .holo-frame { max-height: min(82vh, 860px); padding: 30px 32px 26px; }
+  .holo h3 { font-size: clamp(32px, 2.8vw, 44px); }
+  .holo-blurb { font-size: 16px; line-height: 1.5; }
+  .holo-body { margin-top: 20px; padding-top: 18px; padding-right: 12px; }
+  .entry + .entry { margin-top: 22px; padding-top: 20px; }
+  .entry header strong { font-size: 17px; }
+  .entry header span { font-size: 11px; }
+  .entry em { font-size: 13.5px; margin-top: 6px; }
+  .entry ul { font-size: 15px; line-height: 1.6; padding-left: 18px; margin-top: 12px; }
+  .entry li + li { margin-top: 8px; }
+  .entry p { font-size: 16px; line-height: 1.6; }
+  .chips span { font-size: 13px; }
+  .contact-list { font-size: 15px; }
+}
+
+.dossier mark { box-shadow: inset 0 -0.42em 0 rgba(143, 211, 255, 0.22); }

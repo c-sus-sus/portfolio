@@ -26,6 +26,11 @@ if (import.meta.env.DEV) {
 
 const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
 
+// Turns **keyword** markers from content.js into highlighted spans so a reader can skim.
+function rich(text) {
+  return String(text).split('**').map((part, index) => (index % 2 ? <mark key={index}>{part}</mark> : part));
+}
+
 // Short prompts shown one at a time. `seconds` marks a prompt that clears on a timer; the others
 // clear when the visitor performs the action.
 const COACH = {
@@ -197,7 +202,8 @@ function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   // Coach prompts: timed ones are ticked off here; action ones clear when the flight reports the action.
   const [coachSeen, setCoachSeen] = useState(() => {
-    try { return window.localStorage.getItem('pioneer-coach') === 'done' ? { all: true } : {}; } catch { return {}; }
+    // Remembered for the current visit only, so a returning visitor is guided again.
+    try { window.localStorage.removeItem('pioneer-coach'); return window.sessionStorage.getItem('pioneer-coach') === 'done' ? { all: true } : {}; } catch { return {}; }
   });
   const [returning, setReturning] = useState(false);
 
@@ -272,7 +278,7 @@ function App() {
         const next = { ...seen, [coach.id]: true };
         if (coach.id === 'more') {
           next.all = true;
-          try { window.localStorage.setItem('pioneer-coach', 'done'); } catch { /* storage blocked */ }
+          try { window.sessionStorage.setItem('pioneer-coach', 'done'); } catch { /* storage blocked */ }
         }
         return next;
       });
@@ -562,7 +568,7 @@ function ReportBody({ id, onOpenDossier }) {
         <article key={item.role + item.period} className="entry">
           <header><strong>{item.role}</strong><span>{item.period}</span></header>
           <em>{item.org}</em>
-          <ul>{item.points.map((point) => <li key={point}>{point}</li>)}</ul>
+          <ul>{item.points.map((point) => <li key={point}>{rich(point)}</li>)}</ul>
         </article>
       ));
     case 'projects':
@@ -570,7 +576,7 @@ function ReportBody({ id, onOpenDossier }) {
         <article key={item.name} className="entry">
           <header><strong>{item.name}</strong><span>{item.period}</span></header>
           <em>{item.stack}</em>
-          <ul>{item.points.map((point) => <li key={point}>{point}</li>)}</ul>
+          <ul>{item.points.map((point) => <li key={point}>{rich(point)}</li>)}</ul>
         </article>
       ));
     case 'skills':
@@ -584,11 +590,11 @@ function ReportBody({ id, onOpenDossier }) {
           ))}
           <article className="entry">
             <header><strong>Achievements</strong></header>
-            <ul>{achievements.map((line) => <li key={line}>{line}</li>)}</ul>
+            <ul>{achievements.map((line) => <li key={line}>{rich(line)}</li>)}</ul>
           </article>
           <article className="entry">
             <header><strong>Certifications</strong></header>
-            <ul>{certifications.map((line) => <li key={line}>{line}</li>)}</ul>
+            <ul>{certifications.map((line) => <li key={line}>{rich(line)}</li>)}</ul>
           </article>
         </>
       );
@@ -620,7 +626,7 @@ function ReportBody({ id, onOpenDossier }) {
       return (
         <>
           <article className="entry">
-            <p>{profile.about}</p>
+            <p>{rich(profile.about)}</p>
           </article>
           <article className="entry">
             <header><strong>{education.school}</strong><span>{education.period}</span></header>
@@ -676,7 +682,7 @@ function Dossier({ onClose }) {
                 <div key={key}><dt className="mono">{key}</dt><dd>{value}</dd></div>
               ))}
             </dl>
-            <p className="dossier-summary">{profile.about}</p>
+            <p className="dossier-summary">{rich(profile.about)}</p>
           </section>
 
           <section className="dossier-section">
@@ -685,7 +691,7 @@ function Dossier({ onClose }) {
               <article key={item.role + item.period} className="entry">
                 <header><strong>{item.role}</strong><span>{item.period}</span></header>
                 <em>{item.org} · {item.location}</em>
-                <ul>{item.points.map((point) => <li key={point}>{point}</li>)}</ul>
+                <ul>{item.points.map((point) => <li key={point}>{rich(point)}</li>)}</ul>
               </article>
             ))}
           </section>
@@ -696,7 +702,7 @@ function Dossier({ onClose }) {
               <article key={item.name} className="entry">
                 <header><strong>{item.name}</strong><span>{item.period}</span></header>
                 <em>{item.stack}</em>
-                <ul>{item.points.map((point) => <li key={point}>{point}</li>)}</ul>
+                <ul>{item.points.map((point) => <li key={point}>{rich(point)}</li>)}</ul>
               </article>
             ))}
           </section>
@@ -704,11 +710,11 @@ function Dossier({ onClose }) {
           <section className="dossier-section two-col">
             <div>
               <h3 className="mono">03 · Commendations</h3>
-              <ul className="plain">{achievements.map((line) => <li key={line}>{line}</li>)}</ul>
+              <ul className="plain">{achievements.map((line) => <li key={line}>{rich(line)}</li>)}</ul>
             </div>
             <div>
               <h3 className="mono">04 · Certifications</h3>
-              <ul className="plain">{certifications.map((line) => <li key={line}>{line}</li>)}</ul>
+              <ul className="plain">{certifications.map((line) => <li key={line}>{rich(line)}</li>)}</ul>
             </div>
           </section>
 

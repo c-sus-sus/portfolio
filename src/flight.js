@@ -725,7 +725,9 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
           const p = project(anchor);
           const w = panel.offsetWidth || 420;
           const h = panel.offsetHeight || 400;
-          const x = THREE.MathUtils.clamp(p.x, 24, window.innerWidth - w - 24);
+          // On desktop the report stops short of the Quick travel list on the right.
+          const reserve = window.innerWidth > 760 ? 240 : 24;
+          const x = THREE.MathUtils.clamp(p.x, 24, Math.max(24, window.innerWidth - w - reserve));
           const y = THREE.MathUtils.clamp(p.y, 84 + h / 2, window.innerHeight - 96 - h / 2);
           panel.style.setProperty('--ax', `${x.toFixed(1)}px`);
           panel.style.setProperty('--ay', `${y.toFixed(1)}px`);
