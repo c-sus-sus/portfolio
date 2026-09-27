@@ -6,7 +6,7 @@ A cinematic sci-fi portfolio built with Vite, React 19, Three.js and GSAP.
 2. Earth orbit hero with a textured planet and the hero ship,
 3. spaceship launch on `GO`,
 4. warp transition,
-5. personal universe map with planets and a central About star.
+5. personal universe with five stops: About (the home star), Experience, Projects, Skills & awards, Contact.
 
 ## Structure
 

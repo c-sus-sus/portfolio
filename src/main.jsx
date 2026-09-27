@@ -30,7 +30,7 @@ const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: 
 // clear when the visitor performs the action.
 const COACH = {
   fly: { id: 'fly', step: '1 / 5', desktop: 'Hold W to fly. Move the cursor to steer.', touch: 'Hold Thrust to fly. Steer with the stick.' },
-  find: { id: 'find', step: '2 / 5', seconds: 8, desktop: 'Follow the radar to a station, or pick one from Quick travel.', touch: 'Follow the radar to a station, or tap one in the list.' },
+  find: { id: 'find', step: '2 / 5', seconds: 8, desktop: 'Follow the radar to a station. Or skip flying: click a section in Quick travel.', touch: 'Follow the radar to a station. Or skip flying: tap a section in the list.' },
   dock: { id: 'dock', step: '3 / 5', desktop: 'In range. Press Space to dock.', touch: 'In range. Tap Dock.' },
   read: { id: 'read', step: '4 / 5', seconds: 7, desktop: 'Scroll the report. Leave orbit when you are done.', touch: 'Scroll the report. Tap Leave orbit when you are done.' },
   more: { id: 'more', step: '5 / 5', seconds: 7, desktop: 'Four more stations to explore. Help is in the top bar.', touch: 'Four more stations to explore. Help is in the top bar.' },
@@ -55,7 +55,7 @@ const HELP_LINES = {
   ],
 };
 
-function HelpTerminal({ onClose }) {
+function HelpTerminal({ onClose, onTravel, canTravel }) {
   const lines = isTouch ? HELP_LINES.touch : HELP_LINES.desktop;
   return (
     <section className="help" role="dialog" aria-modal="true" aria-label="Help" data-ui onClick={onClose}>
@@ -67,6 +67,24 @@ function HelpTerminal({ onClose }) {
         <div className="help-body">
           <p><b>pioneer-01:~$</b> help</p>
           <p className="help-dim"># This portfolio is a small star system. Each station holds one section.</p>
+          <div className="help-skip">
+            <p className="help-head">NO TIME TO FLY? JUMP STRAIGHT TO A SECTION</p>
+            <p>You do not have to pilot the ship. {canTravel ? 'Pick a section and the autopilot takes you there and opens it.' : 'Press Go on the first screen, then pick a section here or in the Quick travel list.'}</p>
+            <div className="help-jump">
+              {stations.map((station) => (
+                <button
+                  key={station.id}
+                  type="button"
+                  disabled={!canTravel}
+                  style={{ '--accent': station.color }}
+                  onClick={() => onTravel(station.id)}
+                >
+                  <span>{station.index}</span>
+                  {station.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <p className="help-head">FLY</p>
           <dl>
             {lines.map(([key, value]) => (
@@ -81,7 +99,7 @@ function HelpTerminal({ onClose }) {
             <dt>radar</dt>
             <dd>your nose points up; dots are stations; ▲ ▼ means above or below you</dd>
             <dt>quick travel</dt>
-            <dd>pick a station from the list and the autopilot flies you there</dd>
+            <dd>the list on the right does the same as the buttons above, any time</dd>
             <dt>event horizon</dt>
             <dd>fly into the black hole, far below, to return to Earth orbit</dd>
           </dl>
@@ -96,8 +114,10 @@ function HelpTerminal({ onClose }) {
           </dl>
           <p className="help-head">SHORT ON TIME</p>
           <dl>
+            <dt>résumé</dt>
+            <dd><a href={profile.links.resume} target="_blank" rel="noreferrer">open the PDF</a>, also in the top bar</dd>
             <dt>pilot dossier</dt>
-            <dd>the whole résumé on one page, in the top bar</dd>
+            <dd>the same résumé as an in-site page, in the top bar</dd>
           </dl>
           <p><b>pioneer-01:~$</b> <i className="help-caret" /></p>
         </div>
@@ -327,6 +347,7 @@ function App() {
           <nav className="topnav">
             <a href={profile.links.github} target="_blank" rel="noreferrer">GitHub</a>
             <a href={profile.links.linkedin} target="_blank" rel="noreferrer">LinkedIn</a>
+            <a className="keep" href={profile.links.resume} target="_blank" rel="noreferrer">Résumé</a>
             <button type="button" className={`topnav-btn ${helpOpen ? 'active' : ''}`} onClick={() => setHelpOpen((open) => !open)}>
               Help
             </button>
@@ -519,7 +540,17 @@ function App() {
       )}
 
       {dossierOpen && <Dossier onClose={() => setDossierOpen(false)} />}
-      {helpOpen && <HelpTerminal onClose={() => setHelpOpen(false)} />}
+      {helpOpen && (
+        <HelpTerminal
+          onClose={() => setHelpOpen(false)}
+          canTravel={phase === 'universe'}
+          onTravel={(id) => {
+            setHelpOpen(false);
+            sceneApi.current?.setInputLocked(false);
+            sceneApi.current?.jumpTo(id);
+          }}
+        />
+      )}
     </main>
   );
 }
@@ -542,9 +573,15 @@ function ReportBody({ id, onOpenDossier }) {
           <ul>{item.points.map((point) => <li key={point}>{point}</li>)}</ul>
         </article>
       ));
-    case 'mentions':
+    case 'skills':
       return (
         <>
+          {skills.map((group) => (
+            <article key={group.group} className="entry">
+              <header><strong>{group.group}</strong></header>
+              <div className="chips">{group.items.map((item) => <span key={item}>{item}</span>)}</div>
+            </article>
+          ))}
           <article className="entry">
             <header><strong>Achievements</strong></header>
             <ul>{achievements.map((line) => <li key={line}>{line}</li>)}</ul>
@@ -555,28 +592,16 @@ function ReportBody({ id, onOpenDossier }) {
           </article>
         </>
       );
-    case 'skills':
-      return skills.map((group) => (
-        <article key={group.group} className="entry">
-          <header><strong>{group.group}</strong></header>
-          <div className="chips">{group.items.map((item) => <span key={item}>{item}</span>)}</div>
-        </article>
-      ));
-    case 'about':
-    default:
+    case 'contact':
       return (
         <>
           <article className="entry">
-            <p>{profile.about}</p>
-            <header><strong>{education.school}</strong><span>{education.period}</span></header>
-            <em>{education.degree} · {education.detail}</em>
-          </article>
-          <article className="entry">
-            <header><strong>Open channel</strong></header>
+            <header><strong>Reach me</strong></header>
             <ul className="contact-list">
               <li><a href={`mailto:${profile.email}`}>{profile.email}</a></li>
               <li><a href={profile.links.linkedin} target="_blank" rel="noreferrer">linkedin.com/in/chaitanya-medidar</a></li>
               <li><a href={profile.links.github} target="_blank" rel="noreferrer">github.com/chaitanyamedidar</a></li>
+              <li><a href={profile.links.resume} target="_blank" rel="noreferrer">Résumé · PDF</a></li>
               <li><button type="button" className="linklike" onClick={onOpenDossier}>Open pilot dossier</button></li>
             </ul>
           </article>
@@ -586,6 +611,26 @@ function ReportBody({ id, onOpenDossier }) {
               {credits.map((c) => (
                 <li key={c.url}><a href={c.url} target="_blank" rel="noreferrer">{c.title}</a> by {c.author}</li>
               ))}
+            </ul>
+          </article>
+        </>
+      );
+    case 'about':
+    default:
+      return (
+        <>
+          <article className="entry">
+            <p>{profile.about}</p>
+          </article>
+          <article className="entry">
+            <header><strong>{education.school}</strong><span>{education.period}</span></header>
+            <em>{education.degree} · {education.detail}</em>
+          </article>
+          <article className="entry">
+            <header><strong>Say hello</strong></header>
+            <ul className="contact-list">
+              <li><a href={`mailto:${profile.email}`}>{profile.email}</a></li>
+              <li><a href={profile.links.resume} target="_blank" rel="noreferrer">Résumé · PDF</a></li>
             </ul>
           </article>
         </>
