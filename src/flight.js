@@ -94,6 +94,7 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
     stick: { active: false, x: 0, y: 0 },
     prewarmed: false,
     moved: false,
+    edge: false,
     docked: false,
     left: false,
     prewarmPromise: null,
@@ -130,6 +131,7 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
       dockable: state.dockable ? state.dockable.station.id : null,
       interacted: state.interacted,
       moved: state.moved,
+      edge: state.edge,
       docked: state.docked,
       left: state.left,
     });
@@ -301,7 +303,9 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
     const axis = state.tmp2.crossVectors(state.forward, direction);
     if (axis.lengthSq() < 1e-6) axis.copy(state.up);
     axis.normalize();
-    ship.group.quaternion.premultiply(state.tmpQ.setFromAxisAngle(axis, amount * sign));
+    // Turning toward a target never overshoots it, otherwise the nose would swing past and circle.
+    const turn = sign > 0 ? Math.min(amount, state.forward.angleTo(direction)) : amount;
+    ship.group.quaternion.premultiply(state.tmpQ.setFromAxisAngle(axis, turn * sign));
   }
 
   // ------------------------------------------------------------------ docking
@@ -472,7 +476,13 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
     // Soft boundary: turn back toward the flight volume.
     const fromCenter = state.tmp3.subVectors(ship.group.position, BOUNDS.center);
     const outside = fromCenter.length() - BOUNDS.radius;
-    if (outside > -40) steerToward(fromCenter.normalize(), THREE.MathUtils.clamp((outside + 40) / 60, 0, 1) * 1.8 * delta, -1);
+    if (outside > -40) steerToward(fromCenter.normalize().negate(), THREE.MathUtils.clamp((outside + 40) / 50, 0, 1) * 3.2 * delta, 1);
+    // Tell the pilot why the ship is turning. Hysteresis stops the notice flickering at the line.
+    const atEdge = state.edge ? outside > -70 : outside > -30;
+    if (atEdge !== state.edge) {
+      state.edge = atEdge;
+      emit();
+    }
 
     // Speed and motion.
     const targetSpeed = Math.min(FLIGHT.maxSpeed * 1.25, (state.throttle + (state.boost ? FLIGHT.boostAmount : 0)) * FLIGHT.maxSpeed + dragged);
@@ -485,6 +495,22 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
     }
     // Vertical thrusters move the ship along world up so altitude can change without a pitch input.
     if (Math.abs(state.vertical) > 0.001) ship.group.position.addScaledVector(WORLD_UP, state.vertical * FLIGHT.verticalSpeed * delta);
+
+    // Hard wall: the vertical thrusters and a stalled ship ignore steering, so nothing may pass
+    // a little beyond the soft boundary however it got there.
+    state.tmp3.subVectors(ship.group.position, BOUNDS.center);
+    const limit = BOUNDS.radius + 20;
+    if (state.tmp3.lengthSq() > limit * limit) ship.group.position.copy(BOUNDS.center).addScaledVector(state.tmp3.normalize(), limit);
+    // Bodies are solid: ease the ship back out to just above the surface instead of flying through.
+    for (const body of bodies) {
+      const surface = body.station.radius * 1.25 + 1.2;
+      state.tmp3.subVectors(ship.group.position, body.position);
+      const d = state.tmp3.length();
+      if (d < surface && d > 1e-3) {
+        ship.group.position.addScaledVector(state.tmp3.multiplyScalar(1 / d), (surface - d) * Math.min(1, 18 * delta));
+        state.speed *= 1 - Math.min(1, 3 * delta);
+      }
+    }
 
     // Visual bank and pitch on the model.
     const k = 1 - Math.exp(-6 * delta);
@@ -757,6 +783,7 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
       state.speed = 0;
       state.steer.set(0, 0);
       state.pointerFresh = 0;
+      state.edge = false;
       root.visible = true;
       scene.background = skyTexture;
       ship.group.visible = true;
@@ -818,6 +845,16 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
     setVertical(direction) {
       state.verticalHeld = THREE.MathUtils.clamp(direction, -1, 1);
       if (direction) noteInteraction();
+    },
+    // Drop every held control, for when the tab or app loses focus mid-press.
+    releaseControls() {
+      state.thrustHeld = false;
+      state.boostHeld = false;
+      state.verticalHeld = 0;
+      state.stick.active = false;
+      state.stick.x = 0;
+      state.stick.y = 0;
+      state.drag.active = false;
     },
     setStick(x, y, active) {
       state.stick.active = active;

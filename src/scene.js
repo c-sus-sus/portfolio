@@ -325,8 +325,19 @@ export function createSpaceScene(canvas, callbacks = {}) {
   const onKeyUp = (event) => state.keys.delete(event.key.toLowerCase());
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
-  const onBlur = () => state.keys.clear();
+  const onBlur = () => {
+    state.keys.clear();
+    flight.releaseControls();
+  };
   window.addEventListener('blur', onBlur);
+  const onVisibility = () => { if (document.hidden) onBlur(); };
+  document.addEventListener('visibilitychange', onVisibility);
+  // A lost graphics context (driver reset, too many tabs) would leave a frozen frame.
+  const onContextLost = (event) => {
+    event.preventDefault();
+    callbacks.onGraphicsLost?.();
+  };
+  canvas.addEventListener('webglcontextlost', onContextLost);
 
   function flareEngines(intensity, duration, thrust = 1) {
     shipState.engineMaterials.forEach((material) => {
@@ -490,6 +501,8 @@ export function createSpaceScene(canvas, callbacks = {}) {
       state.disposed = true;
       flight.exit();
       window.removeEventListener('resize', onResize);
+      document.removeEventListener('visibilitychange', onVisibility);
+      canvas.removeEventListener('webglcontextlost', onContextLost);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);

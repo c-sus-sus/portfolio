@@ -34,6 +34,7 @@ function rich(text) {
 // Short prompts shown one at a time. `seconds` marks a prompt that clears on a timer; the others
 // clear when the visitor performs the action.
 const COACH = {
+  edge: { id: 'edge', step: 'Boundary', desktop: 'Edge of charted space. The ship is turning back toward the stations.', touch: 'Edge of charted space. The ship is turning back toward the stations.' },
   fly: { id: 'fly', step: '1 / 5', desktop: 'Hold W to fly. Move the cursor to steer.', touch: 'Hold Thrust to fly. Steer with the stick.' },
   find: { id: 'find', step: '2 / 5', seconds: 8, desktop: 'Follow the radar to a station. Or skip flying: click a section in Quick travel.', touch: 'Follow the radar to a station. Or skip flying: tap a section in the list.' },
   dock: { id: 'dock', step: '3 / 5', desktop: 'In range. Press Space to dock.', touch: 'In range. Tap Dock.' },
@@ -206,10 +207,19 @@ function App() {
     try { window.localStorage.removeItem('pioneer-coach'); return window.sessionStorage.getItem('pioneer-coach') === 'done' ? { all: true } : {}; } catch { return {}; }
   });
   const [returning, setReturning] = useState(false);
+  const [graphicsDown, setGraphicsDown] = useState(null);
 
   useEffect(() => {
     const startedAt = performance.now();
-    const api = createSpaceScene(canvasRef.current, {
+    // If an asset never arrives, do not leave the visitor on the loader forever.
+    const failsafe = window.setTimeout(() => {
+      setProgress(100);
+      setPhase((current) => (current === 'loading' ? 'orbit' : current));
+    }, 20000);
+    let api;
+    try {
+      api = createSpaceScene(canvasRef.current, {
+      onGraphicsLost: () => setGraphicsDown('lost'),
       onProgress: (ratio) => setProgress((value) => Math.max(value, Math.round(ratio * 100))),
       onReady: () => {
         setProgress(100);
@@ -231,8 +241,17 @@ function App() {
         radar: () => radarRef.current,
       },
     });
+    } catch (error) {
+      // No WebGL (old device, disabled hardware acceleration): fall back to a plain page.
+      window.clearTimeout(failsafe);
+      setGraphicsDown('unsupported');
+      return undefined;
+    }
     sceneApi.current = api;
-    return () => api.dispose();
+    return () => {
+      window.clearTimeout(failsafe);
+      api.dispose();
+    };
   }, []);
 
   useEffect(() => {
@@ -259,6 +278,7 @@ function App() {
 
   // Which prompt, if any, the visitor needs right now.
   const coach = useMemo(() => {
+    if (phase === 'universe' && flight.mode === 'flight' && flight.edge && !helpOpen && !dossierOpen) return COACH.edge;
     if (phase !== 'universe' || coachSeen.all || helpOpen || dossierOpen) return null;
     if (flight.mode === 'orbit') return coachSeen.read ? null : COACH.read;
     if (flight.mode !== 'flight') return null;
@@ -269,7 +289,7 @@ function App() {
     }
     if (flight.left && !coachSeen.more) return COACH.more;
     return null;
-  }, [phase, coachSeen, helpOpen, dossierOpen, flight.mode, flight.moved, flight.docked, flight.dockable, flight.left]);
+  }, [phase, coachSeen, helpOpen, dossierOpen, flight.mode, flight.moved, flight.docked, flight.dockable, flight.left, flight.edge]);
 
   useEffect(() => {
     if (!coach?.seconds) return undefined;
@@ -545,6 +565,20 @@ function App() {
         </section>
       )}
 
+      {graphicsDown && (
+        <section className="fallback" data-ui>
+          <p className="mono accent">{graphicsDown === 'lost' ? 'Graphics connection lost' : '3D is not available on this device'}</p>
+          <h2>{profile.headline}</h2>
+          <p>{graphicsDown === 'lost'
+            ? 'Your browser stopped the 3D scene. Reload to fly again, or read everything below.'
+            : 'This browser cannot run the 3D scene, so here is everything in plain form.'}</p>
+          <div className="fallback-actions">
+            <button type="button" onClick={() => setDossierOpen(true)}>Open pilot dossier</button>
+            <a href={profile.links.resume} target="_blank" rel="noreferrer">Résumé · PDF</a>
+            {graphicsDown === 'lost' && <button type="button" onClick={() => window.location.reload()}>Reload</button>}
+          </div>
+        </section>
+      )}
       {dossierOpen && <Dossier onClose={() => setDossierOpen(false)} />}
       {helpOpen && (
         <HelpTerminal
