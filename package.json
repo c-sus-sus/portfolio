@@ -9,10 +9,11 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
+    "gsap": "^3.12.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "three": "^0.178.0",
-    "gsap": "^3.12.7"
+    "three": "^0.178.0"
   },
   "devDependencies": {
     "vite": "^7.0.0"
