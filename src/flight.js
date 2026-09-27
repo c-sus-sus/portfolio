@@ -136,9 +136,13 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
   // ------------------------------------------------------------------ input
   const onPointerMove = (event) => {
     if (!state.active) return;
-    state.pointer.set((event.clientX / window.innerWidth) * 2 - 1, -((event.clientY / window.innerHeight) * 2 - 1));
-    state.pointerInside = true;
-    state.pointerFresh = 1;
+    // Only a mouse cursor leads the nose. A finger has no resting position, so the place of the
+    // last tap (a button, the stick) must never be read as a steering target.
+    if (event.pointerType === 'mouse') {
+      state.pointer.set((event.clientX / window.innerWidth) * 2 - 1, -((event.clientY / window.innerHeight) * 2 - 1));
+      state.pointerInside = true;
+      state.pointerFresh = 1;
+    }
     if (state.drag.active) {
       state.drag.dx = event.clientX - state.drag.startX;
       state.drag.dy = event.clientY - state.drag.startY;
@@ -156,6 +160,8 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
   const onPointerDown = (event) => {
     if (!state.active || state.inputLocked || event.button !== 0) return;
     if (event.target.closest?.('[data-ui]')) return;
+    // Touch steers with the on-screen stick only; dragging the scene would fight it.
+    if (event.pointerType !== 'mouse') return;
     state.drag.active = true;
     state.drag.released = false;
     state.drag.startX = event.clientX;

@@ -1144,6 +1144,44 @@ h1, h2, h3, p { margin: 0; }
 
 .tbtn:active { background: rgba(143, 211, 255, 0.25); }
 
+.dock-btn {
+  position: absolute;
+  left: 50%;
+  bottom: 236px;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 2px;
+  padding: 12px 22px;
+  border: 1px solid var(--accent, var(--ink));
+  background: rgba(8, 14, 30, 0.72);
+  backdrop-filter: blur(10px);
+  color: var(--ink);
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: auto;
+  box-shadow: 0 0 28px color-mix(in srgb, var(--accent, #8fd3ff), transparent 70%);
+  animation: fade-in 300ms var(--ease) both;
+}
+
+.dock-btn span { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent, var(--ink-2)); }
+.dock-btn strong { font-size: 15px; font-weight: 600; }
+.dock-btn:active { background: color-mix(in srgb, var(--accent, #8fd3ff), transparent 70%); }
+
+/* Reading a section on a phone: flight controls, the section list, the title and the route
+   rail all step aside so the report can use the screen. */
+.touch-controls, .touch .quick-nav, .touch .rail, .touch .route-head { transition: opacity 300ms var(--ease), visibility 300ms; }
+.touch.focus .touch-controls,
+.touch.focus .quick-nav,
+.touch.focus .rail,
+.touch.focus .route-head,
+.touch.focus .flight-hud { opacity: 0; visibility: hidden; pointer-events: none; }
+.touch.focus .touch-controls * { pointer-events: none; }
+
+@media (max-width: 760px) {
+  .touch .holo { top: 64px !important; bottom: 20px; display: flex; align-items: flex-end; }
+  .touch .holo-frame { max-height: calc(100dvh - 84px); width: 100%; }
+}
+
 .touch .flight-hud { left: 50%; transform: translateX(-50%); bottom: 22px; }
 .touch .hint { bottom: 228px; }
 

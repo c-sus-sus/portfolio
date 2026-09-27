@@ -181,7 +181,7 @@ function App() {
   const headlineWords = useMemo(() => profile.headline.split(' '), []);
 
   return (
-    <main className={`app phase-${phase} ${isTouch ? 'touch' : ''} ${flight.mode === 'orbit' ? 'in-orbit' : ''} ${dossierOpen ? 'dossier-open' : ''} ${returning ? 'returning' : ''}`}>
+    <main className={`app phase-${phase} ${isTouch ? 'touch' : ''} ${flight.mode === 'orbit' ? 'in-orbit' : ''} ${flight.mode === 'orbit' || flight.mode === 'docking' ? 'focus' : ''} ${dossierOpen ? 'dossier-open' : ''} ${returning ? 'returning' : ''}`}>
       <canvas ref={canvasRef} className="space-canvas" aria-hidden="true" />
 
       {phase === 'loading' && (
@@ -254,7 +254,7 @@ function App() {
 
           <p className={`hint mono ${flight.interacted || flight.mode !== 'flight' ? 'hidden' : ''}`}>
             {isTouch
-              ? 'Stick steers · hold Thrust to fly · ▲ ▼ change altitude · tap a station to dock'
+              ? 'Stick steers · hold Thrust to fly · ▲ ▼ change altitude · Dock appears when a station is in range'
               : 'Cursor or arrow keys steer · W thrust · Shift boost · R / F climb or descend · Space docks'}
           </p>
 
@@ -274,7 +274,7 @@ function App() {
                 <span className="mono">{station.index}</span>
                 <strong>{station.label}</strong>
                 <span className="mono dist" data-dist />
-                <em className="mono">{isTouch ? 'Tap to dock' : 'Space to dock'}</em>
+                {!isTouch && <em className="mono">Space to dock</em>}
               </button>
             );
           })}
@@ -338,6 +338,17 @@ function App() {
 
           {isTouch && (
             <div className="touch-controls" data-ui>
+              {flight.dockable && flight.mode === 'flight' && (
+                <button
+                  type="button"
+                  className="dock-btn"
+                  style={{ '--accent': stations.find((s) => s.id === flight.dockable)?.color }}
+                  onClick={() => sceneApi.current?.dock(flight.dockable)}
+                >
+                  <span className="mono">In range</span>
+                  <strong>Dock at {stations.find((s) => s.id === flight.dockable)?.label}</strong>
+                </button>
+              )}
               <Joystick onChange={(x, y, active) => sceneApi.current?.setStick(x, y, active)} />
               <div className="touch-cluster">
                 <HoldButton className="tbtn mono" label="Climb" onHold={(held) => sceneApi.current?.setVertical(held ? 1 : 0)}>▲</HoldButton>
