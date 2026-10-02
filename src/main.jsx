@@ -77,7 +77,7 @@ function CycleText({ items, every = 2200, className }) {
 // Short prompts shown one at a time. `seconds` marks a prompt that clears on a timer; the others
 // clear when the visitor performs the action.
 const COACH = {
-  edge: { id: 'edge', step: 'Boundary', desktop: 'Edge of charted space. The ship is turning back toward the stations.', touch: 'Edge of charted space. The ship is turning back toward the stations.' },
+  edge: { id: 'edge', kind: 'alert', step: 'Nav limit', desktop: 'Leaving the charted sector. Autopilot is bringing you about.', touch: 'Leaving the charted sector. Autopilot is bringing you about.' },
   fly: { id: 'fly', step: '1 / 5', desktop: 'Hold W to fly. Move the cursor to steer.', touch: 'Hold Thrust to fly. Steer with the stick.' },
   find: { id: 'find', step: '2 / 5', seconds: 8, desktop: 'Follow the radar to a station. Or skip flying: click a section in Quick travel.', touch: 'Follow the radar to a station. Or skip flying: tap a section in the list.' },
   dock: { id: 'dock', step: '3 / 5', desktop: 'In range. Press Space to dock.', touch: 'In range. Tap Dock.' },
@@ -461,7 +461,9 @@ function App() {
       {(phase === 'orbit' || phase === 'launch') && (
         <section className="hero" data-ui>
           <div className="hero-copy">
-            <p className="mono accent">{profile.tagline}</p>
+            <ul className="hero-tags mono" aria-label="Summary">
+              {profile.tagline.split(' · ').map((tag) => <li key={tag} ref={(el) => { if (el) el.style.setProperty('--w', `${el.offsetWidth}px`); }}><i className="star-top" /><i className="star-bottom" /><span className="shiny">{tag}</span></li>)}
+            </ul>
             <h1 aria-label={profile.headline}>
               {headlineWords.map((word, index) => (
                 <span key={`${word}-${index}`} className="w" style={{ '--i': index }} aria-hidden="true">{word}&nbsp;</span>
@@ -522,7 +524,7 @@ function App() {
           </div>
 
           {coach && (
-            <p key={coach.id} className="coach mono" role="status">
+            <p key={coach.id} className="coach mono" data-kind={coach.kind || 'tip'} role="status">
               <span>{coach.step}</span>
               {isTouch ? coach.touch : coach.desktop}
             </p>

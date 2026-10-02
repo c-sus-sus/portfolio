@@ -276,7 +276,9 @@ export function createSpaceScene(canvas, callbacks = {}) {
       warpLines.rotation.z += 0.02;
       warpLines.children.forEach((line, index) => {
         line.position.z += (0.5 + index * 0.003) * warpTunnel.speed;
-        if (line.position.z > 8) line.position.z = -60;
+        // Thin out as a streak nears the lens so it never pops in or out at full size.
+        line.scale.x = THREE.MathUtils.clamp((-line.position.z - 1) / 8, 0.05, 1);
+        if (line.position.z > 2) line.position.z = -60 - Math.random() * 20;
       });
       const shake = 0.012 * warpTunnel.speed;
       shipGroup.position.x = state.warpShipX + (Math.random() - 0.5) * shake;
@@ -369,6 +371,12 @@ export function createSpaceScene(canvas, callbacks = {}) {
       shipGroup.visible = true;
       state.phase = 'launch';
       state.heroLocked = false;
+      // Go pressed mid-arrival: stop the arrival so two tweens do not fight over the ship.
+      gsap.killTweensOf(shipGroup.position);
+      gsap.killTweensOf(state);
+      state.arriving = false;
+      state.arrivalBank = 0;
+      shipGroup.position.copy(HERO.shipPosition);
       flareEngines(6, 0.5, 1.0);
       const forward = new THREE.Vector3(0, 0, 1).applyEuler(HERO.shipRotation);
       const start = shipGroup.position.clone();
@@ -377,8 +385,9 @@ export function createSpaceScene(canvas, callbacks = {}) {
         .timeline()
         .to(shipGroup.position, { x: start.x + forward.x * 0.6, y: start.y + 0.25, z: start.z + 0.2, duration: 0.6, ease: 'power2.inOut' })
         .to(shipGroup.position, { x: exit.x, y: exit.y, z: exit.z, duration: 0.85, ease: 'power4.in' })
-        .to(camera.position, { x: HERO.camera.x + 0.6, y: HERO.camera.y + 0.5, z: HERO.camera.z - 1.6, duration: 1.3, ease: 'power2.inOut' }, 0)
-        .to(cameraTarget, { x: 0.8, y: 0.6, duration: 1.3, ease: 'power2.inOut', onUpdate: () => camera.lookAt(cameraTarget) }, 0);
+        // The camera only eases forward a little; it does not pan after the ship, so the Earth
+        // stays put in the frame while the vessel leaves.
+        .to(camera.position, { x: HERO.camera.x + 0.2, y: HERO.camera.y + 0.15, z: HERO.camera.z - 1.2, duration: 1.3, ease: 'power2.inOut', onUpdate: () => camera.lookAt(cameraTarget) }, 0);
     },
     warp(done) {
       state.phase = 'warp';
@@ -827,16 +836,48 @@ function createStarfield() {
 }
 
 function createWarpLines() {
+  // Soft light streaks: each is a thin, long box drawn with a shader that fades at both ends
+  // and across its width, so it reads as a trail of light rather than a hard stick.
   const group = new THREE.Group();
-  for (let i = 0; i < 120; i += 1) {
-    const radius = 0.6 + Math.random() * 6;
+  const material = new THREE.ShaderMaterial({
+    uniforms: { time: { value: 0 } },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        // Along the streak: bright head, long soft tail. Across: a soft core.
+        float along = vUv.y;
+        float head = smoothstep(0.0, 0.08, along) * pow(1.0 - along, 1.6);
+        float across = pow(1.0 - abs(vUv.x * 2.0 - 1.0), 1.8);
+        float a = head * across;
+        gl_FragColor = vec4(mix(vec3(0.55, 0.8, 1.0), vec3(1.0), head * 0.6) * a, a);
+      }
+    `,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const purple = material.clone();
+  purple.fragmentShader = material.fragmentShader.replace('vec3(0.55, 0.8, 1.0)', 'vec3(0.78, 0.55, 1.0)');
+  for (let i = 0; i < 110; i += 1) {
+    const radius = 1.8 + Math.random() * 5.5;
     const angle = Math.random() * Math.PI * 2;
-    const line = new THREE.Mesh(
-      new THREE.BoxGeometry(0.02, 0.02, 6 + Math.random() * 10),
-      new THREE.MeshBasicMaterial({ color: i % 4 === 0 ? '#c084fc' : '#a5f3fc', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }),
-    );
+    const length = 5 + Math.random() * 12;
+    const geometry = new THREE.PlaneGeometry(0.05 + Math.random() * 0.05, length);
+    const line = new THREE.Mesh(geometry, i % 4 === 0 ? purple : material);
     line.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, -Math.random() * 60);
-    line.lookAt(0, 0, 10);
+    // The plane's long axis runs along Z, and it faces the tunnel's centre line.
+    // Tip the plane to run along Z first, then spin it about Z so its face points at the axis.
+    line.rotation.order = 'ZXY';
+    line.rotation.set(Math.PI / 2, 0, angle + Math.PI / 2);
+    line.userData.length = length;
     group.add(line);
   }
   return group;
@@ -871,8 +912,12 @@ function createWarpTunnel() {
           float along = vUv.y;
           float ring = vUv.x;
           float twist = along * 6.0 + time * 0.25;
-          float n1 = fbm(vec2(ring * 5.0 + twist, along * 26.0 - scroll * 1.0));
-          float n2 = fbm(vec2(ring * 11.0 - twist * 1.7, along * 60.0 - scroll * 2.3));
+          // Sample the noise around a circle so the pattern wraps seamlessly where the cylinder's
+          // texture coordinates meet; a plain ring coordinate left a dark seam down the tunnel.
+          float a1 = ring * 6.2831853 + twist;
+          float a2 = ring * 6.2831853 * 2.0 - twist * 1.7;
+          float n1 = fbm(vec2(cos(a1) * 2.6, sin(a1) * 2.6 + along * 26.0 - scroll * 1.0));
+          float n2 = fbm(vec2(cos(a2) * 3.2, sin(a2) * 3.2 + along * 60.0 - scroll * 2.3));
           float bands = smoothstep(0.42, 0.85, n1) * 1.1 + smoothstep(0.55, 0.9, n2) * 0.6;
           float depth = pow(along, 2.2);
           float nearFade = smoothstep(0.0, 0.18, along);

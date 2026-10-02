@@ -11,6 +11,7 @@
   --line: rgba(242, 246, 251, 0.14);
   --accent: #8fd3ff;
   --display: "Syne", "Space Grotesk", system-ui, sans-serif;
+  --headline: "Unbounded", "Syne", system-ui, sans-serif;
   --body: "Space Grotesk", "Inter", system-ui, sans-serif;
   --mono: "JetBrains Mono", "IBM Plex Mono", Consolas, monospace;
   --gutter: clamp(20px, 4vw, 56px);
@@ -199,11 +200,11 @@ h1, h2, h3, p { margin: 0; }
 }
 
 .hero-copy h1 {
-  font-family: var(--display);
+  font-family: var(--headline);
   font-weight: 800;
-  font-size: clamp(40px, 5.4vw, 86px);
-  line-height: 0.94;
-  letter-spacing: -0.035em;
+  font-size: clamp(34px, 4.6vw, 72px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
   text-shadow: 0 10px 50px rgba(0, 0, 0, 0.6);
 }
 
@@ -290,10 +291,20 @@ h1, h2, h3, p { margin: 0; }
   z-index: 5;
   display: grid;
   place-items: center;
-  align-content: center;
+  align-content: start;
+  padding-top: 17vh;
   gap: 14px;
   pointer-events: none;
   animation: fade-in 500ms var(--ease) both;
+}
+
+.warp-ui .accent {
+  padding: 6px 12px;
+  border: 1px solid rgba(143, 211, 255, 0.45);
+  background: rgba(2, 4, 10, 0.55);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 11px;
 }
 
 .warp-ui h2 {
@@ -684,7 +695,7 @@ h1, h2, h3, p { margin: 0; }
     text-align: left;
   }
 
-  .hero-copy h1 { font-size: clamp(38px, 12vw, 56px); }
+  .hero-copy h1 { font-size: clamp(28px, 8.6vw, 42px); }
   .lede { margin-left: 0; font-size: 15px; max-width: 340px; }
   .hero-foot { display: none; }
 
@@ -1438,7 +1449,6 @@ mark {
   background: none;
   color: var(--ink);
   font-weight: 600;
-  box-shadow: inset 0 -0.42em 0 color-mix(in srgb, var(--accent), transparent 72%);
 }
 
 .holo-frame { background: linear-gradient(160deg, rgba(8, 14, 30, 0.9), rgba(4, 8, 18, 0.84)); }
@@ -1468,7 +1478,6 @@ mark {
   .contact-list { font-size: 15px; }
 }
 
-.dossier mark { box-shadow: inset 0 -0.42em 0 rgba(143, 211, 255, 0.22); }
 
 /* Shown when the 3D scene cannot run or the graphics context is lost. */
 .fallback {
@@ -1496,7 +1505,22 @@ mark {
   cursor: pointer;
 }
 
-.coach[data-kind="edge"] { border-left-color: #ffb060; }
+/* Navigation alert: a warning strip at the top, amber, pulsing, with a caution mark; it never
+   sits over the station labels at the bottom. */
+.coach[data-kind="alert"] {
+  top: 96px;
+  bottom: auto;
+  border: 1px solid rgba(255, 176, 96, 0.6);
+  border-left: 3px solid #ffb060;
+  background: rgba(40, 22, 6, 0.78);
+  box-shadow: 0 0 24px rgba(255, 176, 96, 0.25);
+  animation: coach-in 420ms var(--ease) both, alert-pulse 1.6s ease-in-out 420ms infinite;
+}
+.coach[data-kind="alert"] span { color: #ffb060; }
+.coach[data-kind="alert"] span::before { content: "⚠ "; }
+@keyframes alert-pulse { 50% { box-shadow: 0 0 34px rgba(255, 176, 96, 0.45); border-color: rgba(255, 176, 96, 0.95); } }
+.touch .coach[data-kind="alert"] { top: 200px; bottom: auto; }
+@media (prefers-reduced-motion: reduce) { .coach[data-kind="alert"] { animation: coach-in 420ms var(--ease) both; } }
 
 /* ---------------------------------------------------------------------------
    Arrival choice and guided tour
@@ -1570,7 +1594,8 @@ mark {
 .tour-bar button:hover:not(:disabled) { border-color: var(--ink); }
 .tour-bar button:disabled { opacity: 0.35; cursor: default; }
 .tour-bar .next { border-color: var(--accent); background: rgba(143, 211, 255, 0.12); }
-.tour-bar .solo { color: var(--ink-2); border-color: transparent; }
+.tour-bar .solo { color: var(--ink); border-color: var(--accent); background: rgba(143, 211, 255, 0.12); box-shadow: 0 0 16px rgba(143, 211, 255, 0.25); }
+.tour-bar .solo::before { content: "✦ "; color: var(--accent); }
 .tour-pos { display: grid; text-align: center; min-width: 120px; line-height: 1.2; }
 .tour-pos strong { font-size: 13px; }
 .tour-pos .dim { font-size: 10px; }
@@ -1579,14 +1604,18 @@ mark {
   position: absolute;
   right: var(--gutter);
   bottom: 28px;
-  border: 1px solid var(--line);
-  background: rgba(4, 8, 18, 0.7);
-  color: var(--ink-2);
-  padding: 9px 14px;
-  font-size: 11px;
+  border: 1px solid var(--accent);
+  background: rgba(143, 211, 255, 0.12);
+  color: var(--ink);
+  padding: 10px 16px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
   cursor: pointer;
+  box-shadow: 0 0 18px rgba(143, 211, 255, 0.28);
+  transition: background 200ms var(--ease), box-shadow 200ms var(--ease);
 }
-.tour-switch:hover { color: var(--ink); border-color: var(--ink); }
+.tour-switch::before { content: "✦ "; color: var(--accent); }
+.tour-switch:hover { background: rgba(143, 211, 255, 0.3); box-shadow: 0 0 26px rgba(143, 211, 255, 0.45); }
 .focus .tour-switch { display: none; }
 
 /* The tour bar stays while a report is open, including on phones, and the report leaves room. */
@@ -1624,3 +1653,81 @@ mark {
 .go-stops::after { content: ""; position: absolute; right: -20px; top: 50%; width: 12px; height: 1px; background: var(--line); }
 .hero-stop { color: var(--accent); white-space: nowrap; font-size: 13px; }
 @media (max-width: 760px) { .go-stops { right: calc(var(--gutter) + 112px + 24px); bottom: calc(28px + 56px); font-size: 10px; } .hero-stop { font-size: 12px; } }
+
+/* Hero tags: chips with a travelling star-border and a shine sweeping across the text. */
+.hero-copy .hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 14px;
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+}
+.hero-tags li {
+  position: relative;
+  overflow: hidden;
+  flex: 0 0 auto;
+  width: max-content;
+  padding: 1px;
+  border-radius: 999px;
+  background: rgba(8, 14, 30, 0.9);
+  animation: rise 900ms var(--ease) both;
+}
+.hero-tags li:nth-child(2) { animation-delay: 80ms; }
+.hero-tags li:nth-child(3) { animation-delay: 160ms; }
+/* Two glowing points orbit the chip's edge, one along the top and one along the bottom. */
+.hero-tags .star-top, .hero-tags .star-bottom {
+  position: absolute;
+  width: 300%;
+  height: 50%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 60%);
+  opacity: 0.8;
+  z-index: 0;
+}
+/* A small point of light, not a bar: the glow is 28px wide and runs the full edge. */
+.hero-tags .star-top, .hero-tags .star-bottom { width: 28px; height: 28px; }
+.hero-tags .star-top { top: -14px; left: 0; animation: star-top 5s ease-in-out infinite; animation-delay: var(--star-delay, 2.6s); }
+.hero-tags .star-bottom { bottom: -14px; right: 0; animation: star-bottom 5s ease-in-out infinite; animation-delay: var(--star-delay, 2.6s); }
+.hero-tags li:nth-child(2) { --star-delay: 3.4s; }
+.hero-tags li:nth-child(3) { --star-delay: 4.2s; }
+@keyframes star-top { 0% { transform: translateX(0); opacity: 0; } 15% { opacity: 0.9; } 85% { opacity: 0.9; } 100% { transform: translateX(calc(var(--w, 180px) - 28px)); opacity: 0; } }
+@keyframes star-bottom { 0% { transform: translateX(0); opacity: 0; } 15% { opacity: 0.9; } 85% { opacity: 0.9; } 100% { transform: translateX(calc(-1 * (var(--w, 180px) - 28px))); opacity: 0; } }
+.hero-tags .shiny {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  white-space: nowrap;
+  padding: 10px 18px;
+  border: 1px solid rgba(242, 246, 251, 0.14);
+  border-radius: 999px;
+  background: rgba(4, 8, 18, 0.92);
+  font-size: 12.5px;
+  letter-spacing: 0.05em;
+  color: var(--ink-2);
+}
+@media (max-width: 760px) {
+  .hero-tags { justify-content: flex-start; gap: 10px; }
+  .hero-tags .shiny { font-size: 11px; padding: 8px 14px; }
+}
+@media (prefers-reduced-motion: reduce) { .hero-tags .star-top, .hero-tags .star-bottom { animation: none; } .hero-copy h1 .w { animation: none; color: var(--ink); } }
+
+/* Headline: a soft shine sweeps across the letters every few seconds. */
+/* Each word is its own animated span, so the shine lives on the words rather than the heading. */
+.hero-copy h1 { text-shadow: none; }
+.hero-copy h1 .w {
+  color: transparent;
+  /* A solid base layer keeps every letter painted; the highlight sweeps over it. */
+  background-image:
+    linear-gradient(115deg, transparent 0%, transparent 44%, rgba(255, 255, 255, 0.9) 50%, transparent 56%, transparent 100%),
+    linear-gradient(var(--ink), var(--ink));
+  background-size: 300% 100%, 100% 100%;
+  background-repeat: no-repeat;
+  background-position: 120% 0, 0 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: rise 1000ms var(--ease) both, shine 5s linear infinite;
+  animation-delay: calc(220ms + var(--i) * 80ms), 0s;
+}
+@keyframes shine { from { background-position: 150% 0, 0 0; } to { background-position: -150% 0, 0 0; } }

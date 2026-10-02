@@ -8,7 +8,7 @@ export const profile = {
   callsign: 'PIONEER-01',
   role: 'AI & Data Science engineer',
   location: 'Mumbai, India',
-  tagline: 'AI & Data Science · LFX Mentee 2026 at CNCF Meshery · 4x hackathon winner',
+  tagline: 'AI & Data Science · LFX Mentee 2026 at CNCF Meshery · 4x Hackathon Winner',
   headline: 'I build ML systems that ship.',
   intro:
     'Open source contributor across VS Code, Meshery and AnkiDroid. Researching selective training for LLM coding agents. This portfolio is a short flight through my work: press Go, then take the guided tour or fly yourself.',
