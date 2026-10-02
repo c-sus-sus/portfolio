@@ -61,17 +61,22 @@ The home star, asteroids, nebulae, warp tunnel and thrusters are procedural (no 
 
 ## Controls
 
-Desktop: the cursor (or the arrow keys) steers yaw and pitch, `W` holds thrust, `Shift` boosts,
-`S` brakes, `R` / `F` fire the vertical thrusters to climb or descend without pitching, and `Space`
-docks at the highlighted station. Any input releases an orbit. The Quick travel list flies the
-autopilot to a station.
+After the wormhole the visitor chooses **Guided tour** (the autopilot flies station to station;
+Prev / Next, with the report opening at each stop) or **Fly solo**. The choice can be switched at
+any time, and Quick travel jumps to any station in either mode.
 
-Phone: a left-thumb joystick steers, the right-hand cluster has Thrust, Boost and climb / descend
-arrows, and tapping a station label docks.
+Fly solo on desktop: the cursor or the arrow keys steer, `W` holds thrust, `Shift` boosts, `S`
+brakes, `R` / `F` climb or descend without pitching, and `Space` docks at the highlighted station.
+Any input releases an orbit. On phones: a left-thumb joystick steers (up and down changes
+altitude), holding Thrust flies at a fixed brisk speed, and a Dock button appears when a station is
+in range. A radar shows the stations around the ship, and short one-line prompts guide the first
+flight. Help in the top bar lists all of this and offers direct jumps to each section; Résumé opens
+the pilot dossier, which has the PDF at its foot.
 
 Docking glides the ship onto the orbit ring over 1.5 s while the camera eases into the orbit
 framing; the report opens once the ship has settled. Leaving orbit pushes off gently and spools
-the engines before handing control back.
+the engines before handing control back. Near the edge of the flight volume an amber alert shows
+while the autopilot turns the ship back.
 
 The jump after GO doubles as the loading state: on the hero the route's shaders are compiled and
 its textures uploaded in the background (`flight.prewarm`), and the wormhole simply keeps flowing

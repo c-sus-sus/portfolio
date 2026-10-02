@@ -307,7 +307,7 @@ export function createSpaceScene(canvas, callbacks = {}) {
     HERO.camera.z = 9.6 + narrow;
     // Narrow screens: bring the ship toward the centre line and a touch lower so it sits between
     // the copy and the limb instead of hanging off the left edge; the orbit pose follows.
-    HERO.shipPosition.set(-1.9 + narrow * 0.3, 0.8 - narrow * 0.34, 0.9);
+    HERO.shipPosition.set(-1.9 + narrow * 0.42, 0.8 - narrow * 0.5, 0.9);
     HERO.shipRotation.copy(orbitHoldPose(HERO.shipPosition, HERO.earthPosition));
     if (state.heroLocked) camera.position.z = HERO.camera.z;
     camera.updateProjectionMatrix();
@@ -468,12 +468,6 @@ export function createSpaceScene(canvas, callbacks = {}) {
     },
     setThrustHeld(held) {
       flight.setThrustHeld(held);
-    },
-    setBoostHeld(held) {
-      flight.setBoostHeld(held);
-    },
-    setVertical(direction) {
-      flight.setVertical(direction);
     },
     setStick(x, y, active) {
       flight.setStick(x, y, active);

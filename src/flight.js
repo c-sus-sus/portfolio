@@ -88,8 +88,6 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
     interacted: false,
     throttle: 0,
     thrustHeld: false,
-    boostHeld: false,
-    verticalHeld: 0,
     vertical: 0,
     stick: { active: false, x: 0, y: 0 },
     prewarmed: false,
@@ -225,11 +223,11 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
     const keyYaw = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
     const keyPitch = (keys.has('arrowup') ? 1 : 0) - (keys.has('arrowdown') ? 1 : 0);
     // Vertical thrusters: R climbs, F descends (or the touch arrows), without pitching the nose.
-    const verticalIn = state.verticalHeld || ((keys.has('r') ? 1 : 0) - (keys.has('f') ? 1 : 0));
+    const verticalIn = (keys.has('r') ? 1 : 0) - (keys.has('f') ? 1 : 0);
     const thrusting = keys.has('w') || state.thrustHeld;
     const braking = keys.has('s');
     // On touch there is one button: holding Thrust gives a fixed brisk speed with boost built in.
-    state.boost = keys.has('shift') || state.boostHeld || state.thrustHeld;
+    state.boost = keys.has('shift') || state.thrustHeld;
     const stickLive = state.stick.active && Math.hypot(state.stick.x, state.stick.y) > FLIGHT.deadZone;
     const keyed = keyYaw !== 0 || keyPitch !== 0 || verticalIn !== 0 || thrusting || braking || state.boost || stickLive;
     if (keyed) noteInteraction();
@@ -319,7 +317,8 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
     state.throttle = 0;
     const { station } = body;
     const o = state.orbit;
-    o.radius = station.radius * 1.9;
+    // The star is big and bright; orbit it from further out so it does not fill the frame.
+    o.radius = station.radius * (station.kind === 'star' ? 2.6 : 1.9);
     o.normal.set(0.28, 1, 0.18).normalize();
     o.e1.crossVectors(o.normal, WORLD_UP);
     if (o.e1.lengthSq() < 1e-4) o.e1.set(1, 0, 0);
@@ -602,7 +601,7 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
       const body = state.locked;
       const o = state.orbit;
       const r = body.station.radius;
-      const dist = r * 3.2 + 9;
+      const dist = r * (body.station.kind === 'star' ? 4.6 : 3.2) + 9;
       state.tmp.copy(body.position)
         .addScaledVector(o.e1, Math.cos(o.camAngle) * dist)
         .addScaledVector(o.e2, Math.sin(o.camAngle) * dist)
@@ -832,27 +831,15 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
         state.stick.active = false;
         state.steer.set(0, 0);
         state.thrustHeld = false;
-        state.boostHeld = false;
-        state.verticalHeld = 0;
       }
     },
     setThrustHeld(held) {
       state.thrustHeld = held;
       if (held) noteInteraction();
     },
-    setBoostHeld(held) {
-      state.boostHeld = held;
-      if (held) noteInteraction();
-    },
-    setVertical(direction) {
-      state.verticalHeld = THREE.MathUtils.clamp(direction, -1, 1);
-      if (direction) noteInteraction();
-    },
     // Drop every held control, for when the tab or app loses focus mid-press.
     releaseControls() {
       state.thrustHeld = false;
-      state.boostHeld = false;
-      state.verticalHeld = 0;
       state.stick.active = false;
       state.stick.x = 0;
       state.stick.y = 0;
@@ -1287,7 +1274,7 @@ function createAsteroidFields() {
   const placements = [];
   // Keep every station's orbit and its docked camera clear of rocks.
   const nearStation = (x, y, z) => stations.some((station) => {
-    const clear = station.radius * 3.2 + 18;
+    const clear = station.radius * (station.kind === 'star' ? 4.6 : 3.2) + 18;
     const dx = x - station.position[0];
     const dy = y - station.position[1];
     const dz = z - station.position[2];

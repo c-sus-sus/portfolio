@@ -376,20 +376,6 @@ h1, h2, h3, p { margin: 0; }
   animation: rise 700ms var(--ease) both;
 }
 
-.hint {
-  position: absolute;
-  left: 50%;
-  bottom: 92px;
-  transform: translateX(-50%);
-  color: var(--ink-3);
-  white-space: nowrap;
-  transition: opacity 600ms var(--ease);
-  animation: fade-in 1200ms var(--ease) both;
-  animation-delay: 1200ms;
-  pointer-events: none;
-}
-
-.hint.hidden { animation: none; opacity: 0; }
 
 /* Station labels floating above each planet. */
 
@@ -703,7 +689,6 @@ h1, h2, h3, p { margin: 0; }
   .go-label { font-size: 24px; }
 
   .route-head { top: 76px; }
-  .hint { bottom: 96px; font-size: 11px; white-space: normal; text-align: center; width: 80vw; }
 
   .holo {
     left: var(--gutter) !important;
@@ -1150,23 +1135,6 @@ h1, h2, h3, p { margin: 0; }
   pointer-events: auto;
 }
 
-.tbtn {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: 1px solid rgba(242, 246, 251, 0.45);
-  background: rgba(8, 14, 30, 0.5);
-  color: var(--ink);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.tbtn:active { background: rgba(143, 211, 255, 0.25); }
-.tbtn.armed { background: rgba(143, 211, 255, 0.3); border-color: var(--accent); box-shadow: 0 0 16px rgba(143, 211, 255, 0.35); }
 
 .dock-btn {
   position: absolute;
@@ -1564,6 +1532,7 @@ mark {
 .choose-card.primary em { color: var(--accent); }
 .choose-card:hover, .choose-card:focus-visible { transform: translateY(-2px); border-color: var(--ink); }
 
+/* Mode classes come from the shell: mode-choose while choosing, mode-tour on the guided tour. */
 .mode-choose .touch-controls, .mode-choose .radar, .mode-choose .flight-hud, .mode-choose .coach, .mode-choose .quick-nav, .mode-choose .station-label, .mode-choose .route-head { display: none; }
 .mode-tour .touch-controls, .mode-tour .radar, .mode-tour .flight-hud, .mode-tour .coach, .mode-tour .dock-btn, .mode-tour .holo-close, .mode-tour .hole-label { display: none; }
 
@@ -1708,26 +1677,32 @@ mark {
   color: var(--ink-2);
 }
 @media (max-width: 760px) {
-  .hero-tags { justify-content: flex-start; gap: 10px; }
-  .hero-tags .shiny { font-size: 11px; padding: 8px 14px; }
+  .hero-copy .hero-tags { justify-content: flex-start; gap: 8px; margin-bottom: 14px; }
+  .hero-tags .shiny { font-size: 10px; padding: 6px 11px; letter-spacing: 0.03em; }
+  .hero-copy h1 { font-size: clamp(34px, 10.4vw, 48px); line-height: 1; }
+  .lede { font-size: 14px; max-width: 34ch; }
 }
 @media (prefers-reduced-motion: reduce) { .hero-tags .star-top, .hero-tags .star-bottom { animation: none; } .hero-copy h1 .w { animation: none; color: var(--ink); } }
 
 /* Headline: a soft shine sweeps across the letters every few seconds. */
-/* Each word is its own animated span, so the shine lives on the words rather than the heading. */
-.hero-copy h1 { text-shadow: none; }
+/* One shine sweeps the whole headline. --p (0..1, animated on the heading) is the highlight's
+   position across the line; each word offsets the shared gradient by its own left edge, so the
+   highlight is continuous across word boundaries and line breaks. */
+@property --p { syntax: '<number>'; inherits: true; initial-value: -0.3; }
+.hero-copy h1 { text-shadow: none; animation: shine 4.5s linear infinite; }
 .hero-copy h1 .w {
   color: transparent;
-  /* A solid base layer keeps every letter painted; the highlight sweeps over it. */
   background-image:
-    linear-gradient(115deg, transparent 0%, transparent 44%, rgba(255, 255, 255, 0.9) 50%, transparent 56%, transparent 100%),
+    linear-gradient(105deg, transparent 0%, transparent 46%, rgba(255, 255, 255, 0.95) 50%, transparent 54%, transparent 100%),
     linear-gradient(var(--ink), var(--ink));
-  background-size: 300% 100%, 100% 100%;
+  background-size: calc(var(--line, 600px) * 2) 100%, 100% 100%;
   background-repeat: no-repeat;
-  background-position: 120% 0, 0 0;
+  background-position: calc((var(--p) - 1) * var(--line, 600px) - var(--off, 0px)) 0, 0 0;
   -webkit-background-clip: text;
   background-clip: text;
-  animation: rise 1000ms var(--ease) both, shine 5s linear infinite;
-  animation-delay: calc(220ms + var(--i) * 80ms), 0s;
 }
-@keyframes shine { from { background-position: 150% 0, 0 0; } to { background-position: -150% 0, 0 0; } }
+@keyframes shine { from { --p: -0.35; } to { --p: 1.35; } }
+
+.dossier-sub { font-size: 0.5em; font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
+.resume-btn { color: var(--ink); }
+.resume-btn::after { transform: scaleX(1); background: var(--accent); }

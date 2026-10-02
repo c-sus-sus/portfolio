@@ -34,31 +34,38 @@ function rich(text) {
 // Decrypt-style reveal: the text starts as random glyphs and resolves left to right. Plays
 // again whenever the text changes. Honours the reduced-motion setting.
 const GLYPHS = '!<>-_\/[]{}=+*^?#0123456789ABCDEFGHJKLMNPQRSTUVWXYZ';
-function Scramble({ text, speed = 28, delay = 0, as: Tag = 'span', className }) {
-  const [shown, setShown] = useState(text);
+// Short and quiet: the text resolves left to right in about 600 ms whatever its length, and only
+// a three-character window ahead of the resolved part flickers; the rest is held as blank space
+// so the line keeps its width and nothing jumps.
+const GLYPH_WINDOW = 3;
+const REVEAL_MS = 600;
+const hold = (text) => String(text).replace(/[^ ]/g, ' ');
+function Scramble({ text, delay = 0, as: Tag = 'span', className }) {
+  const [shown, setShown] = useState(() => (delay > 0 ? hold(text) : text));
   useEffect(() => {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { setShown(text); return undefined; }
     const target = String(text);
-    let frame = 0;
+    const stepMs = Math.max(16, REVEAL_MS / Math.max(1, target.length));
+    let settled = 0;
     let timer = 0;
     const start = window.setTimeout(() => {
       const tick = () => {
-        frame += 1;
-        const settled = Math.floor(frame * 0.9);
+        settled += 1;
         let out = '';
         for (let i = 0; i < target.length; i += 1) {
           const ch = target[i];
           if (i < settled || ch === ' ' || ch === '·') out += ch;
-          else out += GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+          else if (i < settled + GLYPH_WINDOW) out += GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+          else out += ' ';
         }
         setShown(out);
-        if (settled < target.length) timer = window.setTimeout(tick, speed);
+        if (settled < target.length) timer = window.setTimeout(tick, stepMs);
         else setShown(target);
       };
       tick();
     }, delay);
     return () => { window.clearTimeout(start); window.clearTimeout(timer); };
-  }, [text, speed, delay]);
+  }, [text, delay]);
   return <Tag className={className} aria-label={String(text)}>{shown}</Tag>;
 }
 
@@ -71,7 +78,7 @@ function CycleText({ items, every = 2200, className }) {
     const timer = window.setInterval(() => setIndex((i) => (i + 1) % items.length), every);
     return () => window.clearInterval(timer);
   }, [items, every]);
-  return <Scramble className={className} speed={26} text={items[index]} />;
+  return <Scramble className={className} text={items[index]} />;
 }
 
 // Short prompts shown one at a time. `seconds` marks a prompt that clears on a timer; the others
@@ -165,9 +172,7 @@ function HelpTerminal({ onClose, onTravel, canTravel }) {
           <p className="help-head">SHORT ON TIME</p>
           <dl>
             <dt>résumé</dt>
-            <dd><a href={profile.links.resume} target="_blank" rel="noreferrer">open the PDF</a>, also in the top bar</dd>
-            <dt>pilot dossier</dt>
-            <dd>the same résumé as an in-site page, in the top bar</dd>
+            <dd>Résumé in the top bar opens the pilot dossier: the whole résumé on one page, with the <a href={profile.links.resume} target="_blank" rel="noreferrer">original PDF</a> at the bottom</dd>
           </dl>
           <p><b>pioneer-01:~$</b> <i className="help-caret" /></p>
         </div>
@@ -335,7 +340,6 @@ function App() {
   }, []);
   const startTour = useCallback(() => {
     setTravelMode('tour');
-    sceneApi.current?.setBoostHeld(false);
     // Already docked somewhere: continue the tour from here rather than flying back to the start.
     if (flight.station) tourTarget.current = flight.station;
     else tourGo(0);
@@ -447,12 +451,11 @@ function App() {
           <nav className="topnav">
             <a href={profile.links.github} target="_blank" rel="noreferrer">GitHub</a>
             <a href={profile.links.linkedin} target="_blank" rel="noreferrer">LinkedIn</a>
-            <a className="keep" href={profile.links.resume} target="_blank" rel="noreferrer">Résumé</a>
             <button type="button" className={`topnav-btn ${helpOpen ? 'active' : ''}`} onClick={() => setHelpOpen((open) => !open)}>
               Help
             </button>
-            <button type="button" className={`topnav-btn ${dossierOpen ? 'active' : ''}`} onClick={() => setDossierOpen((open) => !open)}>
-              Pilot dossier
+            <button type="button" className={`topnav-btn keep resume-btn ${dossierOpen ? 'active' : ''}`} onClick={() => setDossierOpen((open) => !open)}>
+              Résumé
             </button>
           </nav>
         </header>
@@ -466,7 +469,21 @@ function App() {
             </ul>
             <h1 aria-label={profile.headline}>
               {headlineWords.map((word, index) => (
-                <span key={`${word}-${index}`} className="w" style={{ '--i': index }} aria-hidden="true">{word}&nbsp;</span>
+                <span
+                  key={`${word}-${index}`}
+                  className="w"
+                  style={{ '--i': index }}
+                  aria-hidden="true"
+                  ref={(el) => {
+                    if (!el) return;
+                    const measure = () => {
+                      el.style.setProperty('--off', `${el.offsetLeft}px`);
+                      el.style.setProperty('--line', `${el.parentElement.clientWidth}px`);
+                    };
+                    measure();
+                    window.addEventListener('resize', measure);
+                  }}
+                >{word}&nbsp;</span>
               ))}
             </h1>
             <p className="lede">{profile.intro}</p>
@@ -491,7 +508,7 @@ function App() {
       {phase === 'warp' && (
         <section className="warp-ui" aria-label="Jump in progress">
           <p className="mono accent">Jump sequence</p>
-          <Scramble as="h2" speed={40} text="Crossing to the archive" />
+          <Scramble as="h2" text="Crossing to the archive" />
           <div className="warp-line"><i /></div>
         </section>
       )}
@@ -499,7 +516,7 @@ function App() {
       {phase === 'universe' && travelMode === null && (
         <section className="choose" data-ui aria-label="How would you like to explore?">
           <p className="mono accent">You have arrived</p>
-          <Scramble as="h2" delay={1000} speed={34} text="How would you like to explore?" />
+          <Scramble as="h2" delay={1000} text="How would you like to explore?" />
           <div className="choose-options">
             <button type="button" className="choose-card primary" onClick={startTour} autoFocus>
               <strong>Guided tour</strong>
@@ -520,7 +537,7 @@ function App() {
         <section className="route" data-ui>
           <div className="route-head">
             <p className="mono accent">Mission route</p>
-            <Scramble as="h2" className="route-title" speed={32} text={activeStation ? activeStation.title : 'Fly to a station'} />
+            <Scramble as="h2" className="route-title" text={activeStation ? activeStation.title : 'Fly to a station'} />
           </div>
 
           {coach && (
@@ -601,7 +618,7 @@ function App() {
             <nav className="tour-bar" aria-label="Guided tour">
               <button type="button" className="mono" disabled={tourBusy || tourIndex <= 0} onClick={() => tourGo(tourIndex - 1)}>◀ Prev</button>
               <span className="tour-pos">
-                <Scramble as="strong" speed={30} text={tourIndex >= 0 ? stations[tourIndex].label : 'En route'} />
+                <Scramble as="strong" text={tourIndex >= 0 ? stations[tourIndex].label : 'En route'} />
                 <span className="mono dim">{tourIndex >= 0 ? `${tourIndex + 1} of ${stations.length}` : ''}</span>
               </span>
               {tourIndex < stations.length - 1 ? (
@@ -689,8 +706,8 @@ function App() {
             ? 'Your browser stopped the 3D scene. Reload to fly again, or read everything below.'
             : 'This browser cannot run the 3D scene, so here is everything in plain form.'}</p>
           <div className="fallback-actions">
-            <button type="button" onClick={() => setDossierOpen(true)}>Open pilot dossier</button>
-            <a href={profile.links.resume} target="_blank" rel="noreferrer">Résumé · PDF</a>
+            <button type="button" onClick={() => setDossierOpen(true)}>Open résumé</button>
+            <a href={profile.links.resume} target="_blank" rel="noreferrer">Download PDF</a>
             {graphicsDown === 'lost' && <button type="button" onClick={() => window.location.reload()}>Reload</button>}
           </div>
         </section>
@@ -760,8 +777,7 @@ function ReportBody({ id, onOpenDossier }) {
               <li><a href={`mailto:${profile.email}`}>{profile.email}</a></li>
               <li><a href={profile.links.linkedin} target="_blank" rel="noreferrer">linkedin.com/in/chaitanya-medidar</a></li>
               <li><a href={profile.links.github} target="_blank" rel="noreferrer">github.com/chaitanyamedidar</a></li>
-              <li><a href={profile.links.resume} target="_blank" rel="noreferrer">Résumé · PDF</a></li>
-              <li><button type="button" className="linklike" onClick={onOpenDossier}>Open pilot dossier</button></li>
+              <li><button type="button" className="linklike" onClick={onOpenDossier}>Résumé · pilot dossier with PDF</button></li>
             </ul>
           </article>
           <article className="entry credits">
@@ -789,7 +805,7 @@ function ReportBody({ id, onOpenDossier }) {
             <header><strong>Say hello</strong></header>
             <ul className="contact-list">
               <li><a href={`mailto:${profile.email}`}>{profile.email}</a></li>
-              <li><a href={profile.links.resume} target="_blank" rel="noreferrer">Résumé · PDF</a></li>
+              <li><button type="button" className="linklike" onClick={onOpenDossier}>Résumé · pilot dossier with PDF</button></li>
             </ul>
           </article>
         </>
@@ -816,7 +832,7 @@ function Dossier({ onClose }) {
         <header className="dossier-head">
           <div>
             <p className="mono accent">{dossier.bureau}</p>
-            <h2>Pilot dossier</h2>
+            <h2>Résumé <span className="dossier-sub">· Pilot dossier</span></h2>
           </div>
           <div className="dossier-meta mono">
             <span>File {dossier.fileNo}</span>
@@ -892,8 +908,8 @@ function Dossier({ onClose }) {
         </div>
 
         <footer className="dossier-foot">
-          <span className="mono dim">Compiled from the pilot's résumé. Redistribution requires clearance.</span>
-          <a className="dossier-download mono" href={profile.links.resume} target="_blank" rel="noreferrer">Original document · PDF</a>
+          <span className="mono dim">This page is the résumé. The original document is one click away.</span>
+          <a className="dossier-download mono" href={profile.links.resume} target="_blank" rel="noreferrer">Download résumé · PDF</a>
         </footer>
       </article>
     </section>
