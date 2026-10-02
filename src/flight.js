@@ -228,7 +228,8 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
     const verticalIn = state.verticalHeld || ((keys.has('r') ? 1 : 0) - (keys.has('f') ? 1 : 0));
     const thrusting = keys.has('w') || state.thrustHeld;
     const braking = keys.has('s');
-    state.boost = keys.has('shift') || state.boostHeld;
+    // On touch there is one button: holding Thrust gives a fixed brisk speed with boost built in.
+    state.boost = keys.has('shift') || state.boostHeld || state.thrustHeld;
     const stickLive = state.stick.active && Math.hypot(state.stick.x, state.stick.y) > FLIGHT.deadZone;
     const keyed = keyYaw !== 0 || keyPitch !== 0 || verticalIn !== 0 || thrusting || braking || state.boost || stickLive;
     if (keyed) noteInteraction();
@@ -648,7 +649,8 @@ export function createFlight({ scene, camera, renderer, ship, dom, onStateChange
   function placeLabel(label, point, dist, show, fade) {
     const p = project(point);
     // Labels fade out as they drift under the top bar instead of sitting on the nav.
-    const topBand = THREE.MathUtils.clamp((p.y - 64) / 48, 0, 1);
+    // Phones stack the route title and the section list up top, so the clear band is deeper there.
+    const topBand = THREE.MathUtils.clamp((p.y - (window.innerWidth <= 760 ? 250 : 64)) / 48, 0, 1);
     const opacity = show && p.inFront ? THREE.MathUtils.clamp(fade, 0, 1) * topBand : 0;
     if (opacity > 0) {
       label.style.setProperty('--lx', `${p.x.toFixed(1)}px`);

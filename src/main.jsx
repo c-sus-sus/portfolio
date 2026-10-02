@@ -31,6 +31,49 @@ function rich(text) {
   return String(text).split('**').map((part, index) => (index % 2 ? <mark key={index}>{part}</mark> : part));
 }
 
+// Decrypt-style reveal: the text starts as random glyphs and resolves left to right. Plays
+// again whenever the text changes. Honours the reduced-motion setting.
+const GLYPHS = '!<>-_\/[]{}=+*^?#0123456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+function Scramble({ text, speed = 28, delay = 0, as: Tag = 'span', className }) {
+  const [shown, setShown] = useState(text);
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { setShown(text); return undefined; }
+    const target = String(text);
+    let frame = 0;
+    let timer = 0;
+    const start = window.setTimeout(() => {
+      const tick = () => {
+        frame += 1;
+        const settled = Math.floor(frame * 0.9);
+        let out = '';
+        for (let i = 0; i < target.length; i += 1) {
+          const ch = target[i];
+          if (i < settled || ch === ' ' || ch === '·') out += ch;
+          else out += GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+        }
+        setShown(out);
+        if (settled < target.length) timer = window.setTimeout(tick, speed);
+        else setShown(target);
+      };
+      tick();
+    }, delay);
+    return () => { window.clearTimeout(start); window.clearTimeout(timer); };
+  }, [text, speed, delay]);
+  return <Tag className={className} aria-label={String(text)}>{shown}</Tag>;
+}
+
+const HERO_STOPS = stations.map((s) => `${s.index} ${s.label}`);
+
+// Cycles through a list, decrypting each item in turn like a departures board.
+function CycleText({ items, every = 2200, className }) {
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setIndex((i) => (i + 1) % items.length), every);
+    return () => window.clearInterval(timer);
+  }, [items, every]);
+  return <Scramble className={className} speed={26} text={items[index]} />;
+}
+
 // Short prompts shown one at a time. `seconds` marks a prompt that clears on a timer; the others
 // clear when the visitor performs the action.
 const COACH = {
@@ -55,7 +98,6 @@ const HELP_LINES = {
   touch: [
     ['fly', 'hold Thrust'],
     ['steer', 'left stick (up and down changes altitude)'],
-    ['boost', 'hold Boost'],
     ['dock', 'tap Dock when a station is in range'],
     ['leave a station', 'tap Leave orbit'],
   ],
@@ -111,6 +153,8 @@ function HelpTerminal({ onClose, onTravel, canTravel }) {
           </dl>
           <p className="help-head">STATIONS</p>
           <dl>
+            <dt>guided tour</dt>
+            <dd>the autopilot flies you station to station; press Next when you have read each one</dd>
             {stations.map((station) => (
               <React.Fragment key={station.id}>
                 <dt style={{ color: station.color }}>{station.index} {station.label}</dt>
@@ -208,6 +252,10 @@ function App() {
   });
   const [returning, setReturning] = useState(false);
   const [graphicsDown, setGraphicsDown] = useState(null);
+  // How the visitor moves through the archive: null = still choosing, 'tour' = autopilot with
+  // Next / Previous, 'solo' = free flight.
+  const [travelMode, setTravelMode] = useState(null);
+  const tourTarget = useRef(null);
 
   useEffect(() => {
     const startedAt = performance.now();
@@ -260,14 +308,39 @@ function App() {
 
   // The dossier takes over input while it is open.
   useEffect(() => {
-    sceneApi.current?.setInputLocked(dossierOpen || helpOpen);
+    sceneApi.current?.setInputLocked(dossierOpen || helpOpen || (phase === 'universe' && travelMode !== 'solo'));
     if (!dossierOpen) return undefined;
     const onKey = (event) => {
       if (event.key === 'Escape') setDossierOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dossierOpen, helpOpen]);
+  }, [dossierOpen, helpOpen, phase, travelMode]);
+
+  // Every arrival in the archive starts with the choice again.
+  useEffect(() => {
+    if (phase === 'universe') { setTravelMode(null); tourTarget.current = null; }
+  }, [phase]);
+
+  const tourIndex = useMemo(() => {
+    const id = flight.station || tourTarget.current;
+    return id ? stations.findIndex((s) => s.id === id) : -1;
+  }, [flight.station, flight.mode]);
+  const tourBusy = flight.mode === 'transit' || flight.mode === 'docking';
+  const tourGo = useCallback((index) => {
+    const station = stations[index];
+    if (!station) return;
+    tourTarget.current = station.id;
+    sceneApi.current?.jumpTo(station.id);
+  }, []);
+  const startTour = useCallback(() => {
+    setTravelMode('tour');
+    sceneApi.current?.setBoostHeld(false);
+    // Already docked somewhere: continue the tour from here rather than flying back to the start.
+    if (flight.station) tourTarget.current = flight.station;
+    else tourGo(0);
+  }, [tourGo, flight.station]);
+  const startSolo = useCallback(() => { setTravelMode('solo'); }, []);
 
   useEffect(() => {
     if (!helpOpen) return undefined;
@@ -278,6 +351,7 @@ function App() {
 
   // Which prompt, if any, the visitor needs right now.
   const coach = useMemo(() => {
+    if (travelMode !== 'solo') return null;
     if (phase === 'universe' && flight.mode === 'flight' && flight.edge && !helpOpen && !dossierOpen) return COACH.edge;
     if (phase !== 'universe' || coachSeen.all || helpOpen || dossierOpen) return null;
     if (flight.mode === 'orbit') return coachSeen.read ? null : COACH.read;
@@ -289,7 +363,7 @@ function App() {
     }
     if (flight.left && !coachSeen.more) return COACH.more;
     return null;
-  }, [phase, coachSeen, helpOpen, dossierOpen, flight.mode, flight.moved, flight.docked, flight.dockable, flight.left, flight.edge]);
+  }, [phase, coachSeen, helpOpen, dossierOpen, flight.mode, flight.moved, flight.docked, flight.dockable, flight.left, flight.edge, travelMode]);
 
   useEffect(() => {
     if (!coach?.seconds) return undefined;
@@ -350,7 +424,7 @@ function App() {
   const headlineWords = useMemo(() => profile.headline.split(' '), []);
 
   return (
-    <main className={`app phase-${phase} ${isTouch ? 'touch' : ''} ${flight.mode === 'orbit' ? 'in-orbit' : ''} ${flight.mode === 'orbit' || flight.mode === 'docking' ? 'focus' : ''} ${dossierOpen ? 'dossier-open' : ''} ${returning ? 'returning' : ''}`}>
+    <main className={`app phase-${phase} ${isTouch ? 'touch' : ''} mode-${travelMode || 'choose'} ${flight.mode === 'orbit' ? 'in-orbit' : ''} ${flight.mode === 'orbit' || flight.mode === 'docking' ? 'focus' : ''} ${dossierOpen ? 'dossier-open' : ''} ${returning ? 'returning' : ''}`}>
       <canvas ref={canvasRef} className="space-canvas" aria-hidden="true" />
 
       {phase === 'loading' && (
@@ -361,7 +435,7 @@ function App() {
           </div>
           <div className="loader-count">
             <span className="loader-number">{String(progress).padStart(3, '0')}</span>
-            <span className="mono dim">Preparing orbit</span>
+            <span className="mono dim">Pre-flight checks</span>
           </div>
           <div className="loader-line"><i style={{ transform: `scaleX(${progress / 100})` }} /></div>
         </section>
@@ -395,11 +469,15 @@ function App() {
             </h1>
             <p className="lede">{profile.intro}</p>
           </div>
-          <button ref={goRef} className="go" onClick={initiateJump} aria-label="Board the vessel and jump">
+          <button ref={goRef} className="go" onClick={initiateJump} aria-label="Start: fly through the portfolio">
             <span className="go-ring" />
             <span className="go-label">Go</span>
-            <span className="go-sub mono">Board the vessel</span>
+            <span className="go-sub mono">Start the flight</span>
           </button>
+          <div className="go-stops mono" aria-label="Stops: About, Experience, Projects, Skills and awards, Contact">
+            <span className="dim">Stops</span>
+            <CycleText className="hero-stop" items={HERO_STOPS} />
+          </div>
           <div className="hero-foot mono dim">
             <span>Low Earth orbit</span>
             <span>{profile.location}</span>
@@ -411,8 +489,28 @@ function App() {
       {phase === 'warp' && (
         <section className="warp-ui" aria-label="Jump in progress">
           <p className="mono accent">Jump sequence</p>
-          <h2>Crossing to the archive</h2>
+          <Scramble as="h2" speed={40} text="Crossing to the archive" />
           <div className="warp-line"><i /></div>
+        </section>
+      )}
+
+      {phase === 'universe' && travelMode === null && (
+        <section className="choose" data-ui aria-label="How would you like to explore?">
+          <p className="mono accent">You have arrived</p>
+          <Scramble as="h2" delay={1000} speed={34} text="How would you like to explore?" />
+          <div className="choose-options">
+            <button type="button" className="choose-card primary" onClick={startTour} autoFocus>
+              <strong>Guided tour</strong>
+              <span>The ship flies itself through all five sections of this portfolio in order: About, Experience, Projects, Skills & awards, Contact. Each opens as you arrive. Read it, press Next.</span>
+              <em className="mono">Recommended · about 3 minutes</em>
+            </button>
+            <button type="button" className="choose-card" onClick={startSolo}>
+              <strong>Fly solo</strong>
+              <span>Pilot the ship yourself. Steer to any section and dock to read it. The black hole takes you back to Earth.</span>
+              <em className="mono">{isTouch ? 'Joystick and thrust' : 'Cursor, W, Shift, Space'}</em>
+            </button>
+          </div>
+          <p className="mono dim">You can switch at any time.</p>
         </section>
       )}
 
@@ -420,9 +518,7 @@ function App() {
         <section className="route" data-ui>
           <div className="route-head">
             <p className="mono accent">Mission route</p>
-            <h2 key={activeStation?.id || 'flight'} className="route-title">
-              {activeStation ? activeStation.title : 'Fly to a station'}
-            </h2>
+            <Scramble as="h2" className="route-title" speed={32} text={activeStation ? activeStation.title : 'Fly to a station'} />
           </div>
 
           {coach && (
@@ -474,7 +570,7 @@ function App() {
               <div className="holo-frame">
                 <header className="holo-head">
                   <span className="mono accent">{station.index} · {station.label}</span>
-                  <button className="holo-close mono" onClick={() => sceneApi.current?.leaveOrbit()}>Leave orbit</button>
+                  <button className="holo-close mono" onClick={() => sceneApi.current?.leaveOrbit()} title="Close this section and fly on">Leave orbit</button>
                 </header>
                 <h3>{station.title}</h3>
                 <p className="holo-blurb">{station.blurb}</p>
@@ -498,6 +594,25 @@ function App() {
             <span className="mono dist" data-dist />
             <em className="mono">Fly in to return to orbit</em>
           </button>
+
+          {travelMode === 'tour' && (
+            <nav className="tour-bar" aria-label="Guided tour">
+              <button type="button" className="mono" disabled={tourBusy || tourIndex <= 0} onClick={() => tourGo(tourIndex - 1)}>◀ Prev</button>
+              <span className="tour-pos">
+                <Scramble as="strong" speed={30} text={tourIndex >= 0 ? stations[tourIndex].label : 'En route'} />
+                <span className="mono dim">{tourIndex >= 0 ? `${tourIndex + 1} of ${stations.length}` : ''}</span>
+              </span>
+              {tourIndex < stations.length - 1 ? (
+                <button type="button" className="mono next" disabled={tourBusy} onClick={() => tourGo(tourIndex + 1)}>Next ▶</button>
+              ) : (
+                <button type="button" className="mono next" disabled={tourBusy} onClick={() => sceneApi.current?.returnToHero()}>Return to orbit</button>
+              )}
+              <button type="button" className="mono solo" onClick={startSolo}>Fly solo</button>
+            </nav>
+          )}
+          {travelMode === 'solo' && (
+            <button type="button" className="tour-switch mono" data-ui onClick={startTour}>Guided tour</button>
+          )}
 
           <aside className="quick-nav" aria-label="Quick travel">
             <p className="mono dim">Quick travel</p>
@@ -534,7 +649,6 @@ function App() {
               )}
               <Joystick onChange={(x, y, active) => sceneApi.current?.setStick(x, y, active)} />
               <div className="touch-cluster">
-                <HoldButton className="tbtn mono" label="Boost" onHold={(held) => sceneApi.current?.setBoostHeld(held)}>Boost</HoldButton>
                 <HoldButton className="thrust-btn mono" label="Thrust" onHold={(held) => sceneApi.current?.setThrustHeld(held)}>Thrust</HoldButton>
               </div>
             </div>
@@ -616,6 +730,9 @@ function ReportBody({ id, onOpenDossier }) {
     case 'skills':
       return (
         <>
+          <article className="entry">
+            <p>Languages, frameworks and techniques I have used in shipped work, not a checklist. Each item below appears in at least one project or contribution above.</p>
+          </article>
           {skills.map((group) => (
             <article key={group.group} className="entry">
               <header><strong>{group.group}</strong></header>

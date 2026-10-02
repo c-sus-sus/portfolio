@@ -8,12 +8,12 @@ export const profile = {
   callsign: 'PIONEER-01',
   role: 'AI & Data Science engineer',
   location: 'Mumbai, India',
-  tagline: 'AI & Data Science · CNCF Meshery mentee · 4x hackathon winner',
+  tagline: 'AI & Data Science · LFX Mentee 2026 at CNCF Meshery · 4x hackathon winner',
   headline: 'I build ML systems that ship.',
   intro:
-    'Open source contributor across VS Code, Meshery and AnkiDroid. Researching selective training for LLM coding agents. Board the vessel to fly through the work.',
+    'Open source contributor across VS Code, Meshery and AnkiDroid. Researching selective training for LLM coding agents. This portfolio is a short flight through my work: press Go, then take the guided tour or fly yourself.',
   about:
-    'Third-year B.E. student in Artificial Intelligence & Data Science at VESIT, Mumbai (**CGPA 8.8/10**). **Linux Foundation mentee at CNCF Meshery**, open source contributor across **VS Code**, **AnkiDroid** and Hiero Ledger, and currently researching **adaptive selective training for LLM coding agents**.',
+    'Final-year B.E. student in Artificial Intelligence & Data Science at VESIT, Mumbai (**CGPA 8.8/10**). **LFX Mentee 2026 at CNCF Meshery** (Linux Foundation Mentorship), open source contributor across **VS Code**, **AnkiDroid** and Hiero Ledger, and currently researching **adaptive selective training for LLM coding agents**.',
   email: 'chaitanya.medidar@gmail.com',
   links: {
     linkedin: 'https://linkedin.com/in/chaitanya-medidar',
@@ -31,8 +31,8 @@ export const education = {
 
 export const experience = [
   {
-    role: 'Linux Foundation Mentee',
-    org: 'Cloud Native Computing Foundation · CNCF Meshery',
+    role: 'LFX Mentee 2026',
+    org: 'Linux Foundation Mentorship (LFX) · CNCF Meshery',
     period: 'Jun 2026 – Aug 2026',
     location: 'Remote',
     points: [
@@ -95,11 +95,12 @@ export const projects = [
 ];
 
 export const skills = [
-  { group: 'Languages', items: ['Python', 'Golang', 'TypeScript', 'JavaScript', 'Java'] },
-  { group: 'Web', items: ['React', 'Next.js', 'Node.js', 'FastAPI', 'REST APIs', 'RTK Query'] },
-  { group: 'AI / ML', items: ['PyTorch', 'TensorFlow', 'Scikit-Learn', 'HuggingFace TRL', 'LoRA / QLoRA', 'Ollama'] },
+  { group: 'Languages', items: ['Python', 'Go', 'TypeScript', 'JavaScript', 'Java'] },
+  { group: 'Web & APIs', items: ['React', 'Next.js', 'Node.js', 'FastAPI', 'REST APIs', 'RTK Query'] },
+  { group: 'ML frameworks', items: ['PyTorch', 'TensorFlow', 'Scikit-Learn', 'HuggingFace TRL', 'Ollama', 'TFLite'] },
+  { group: 'Techniques applied', items: ['LoRA / QLoRA fine-tuning', 'Selective SFT', 'On-device inference', 'OCR pipelines', 'Prompt and eval design'] },
   { group: 'Cloud & DevOps', items: ['Linux', 'Kubernetes', 'Docker', 'GitHub Actions', 'CI/CD', 'Google Cloud'] },
-  { group: 'Data & Testing', items: ['SQL', 'SQLite', 'Unit Testing', 'Debugging'] },
+  { group: 'Data & testing', items: ['SQL', 'SQLite', 'Unit testing', 'Vitest', 'Debugging'] },
 ];
 
 export const achievements = [
@@ -172,7 +173,7 @@ export const stations = [
     index: '04',
     label: 'Skills & awards',
     title: 'Systems matrix',
-    blurb: 'The tools I work with, then the hackathon wins and certifications that back them up.',
+    blurb: 'What I have actually used in shipped work, then the wins and certifications that back it up.',
     color: '#34d399',
     kind: 'planet',
     model: '/models/planets/serendip.glb',
