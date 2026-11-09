@@ -465,7 +465,7 @@ function App() {
         <section className="hero" data-ui>
           <div className="hero-copy">
             <ul className="hero-tags mono" aria-label="Summary">
-              {profile.tagline.split(' · ').map((tag) => <li key={tag} ref={(el) => { if (el) el.style.setProperty('--w', `${el.offsetWidth}px`); }}><i className="star-top" /><i className="star-bottom" /><span className="shiny">{tag}</span></li>)}
+              {profile.tagline.split(' · ').map((tag) => <li key={tag}>{tag}</li>)}
             </ul>
             <h1 aria-label={profile.headline}>
               {headlineWords.map((word, index) => (

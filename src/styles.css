@@ -1623,66 +1623,29 @@ mark {
 .hero-stop { color: var(--accent); white-space: nowrap; font-size: 13px; }
 @media (max-width: 760px) { .go-stops { right: calc(var(--gutter) + 112px + 24px); bottom: calc(28px + 56px); font-size: 10px; } .hero-stop { font-size: 12px; } }
 
-/* Hero tags: chips with a travelling star-border and a shine sweeping across the text. */
+/* Hero tags: three quiet chips. */
 .hero-copy .hero-tags {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 14px;
+  gap: 10px;
   margin: 0 0 22px;
   padding: 0;
   list-style: none;
 }
 .hero-tags li {
-  position: relative;
-  overflow: hidden;
   flex: 0 0 auto;
-  width: max-content;
-  padding: 1px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(8, 14, 30, 0.9);
+  color: var(--ink-2);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
   animation: rise 900ms var(--ease) both;
 }
 .hero-tags li:nth-child(2) { animation-delay: 80ms; }
 .hero-tags li:nth-child(3) { animation-delay: 160ms; }
-/* Two glowing points orbit the chip's edge, one along the top and one along the bottom. */
-.hero-tags .star-top, .hero-tags .star-bottom {
-  position: absolute;
-  width: 300%;
-  height: 50%;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--accent) 0%, transparent 60%);
-  opacity: 0.8;
-  z-index: 0;
-}
-/* A small point of light, not a bar: the glow is 28px wide and runs the full edge. */
-.hero-tags .star-top, .hero-tags .star-bottom { width: 28px; height: 28px; }
-.hero-tags .star-top { top: -14px; left: 0; animation: star-top 5s ease-in-out infinite; animation-delay: var(--star-delay, 2.6s); }
-.hero-tags .star-bottom { bottom: -14px; right: 0; animation: star-bottom 5s ease-in-out infinite; animation-delay: var(--star-delay, 2.6s); }
-.hero-tags li:nth-child(2) { --star-delay: 3.4s; }
-.hero-tags li:nth-child(3) { --star-delay: 4.2s; }
-@keyframes star-top { 0% { transform: translateX(0); opacity: 0; } 15% { opacity: 0.9; } 85% { opacity: 0.9; } 100% { transform: translateX(calc(var(--w, 180px) - 28px)); opacity: 0; } }
-@keyframes star-bottom { 0% { transform: translateX(0); opacity: 0; } 15% { opacity: 0.9; } 85% { opacity: 0.9; } 100% { transform: translateX(calc(-1 * (var(--w, 180px) - 28px))); opacity: 0; } }
-.hero-tags .shiny {
-  position: relative;
-  z-index: 1;
-  display: inline-block;
-  white-space: nowrap;
-  padding: 10px 18px;
-  border: 1px solid rgba(242, 246, 251, 0.14);
-  border-radius: 999px;
-  background: rgba(4, 8, 18, 0.92);
-  font-size: 12.5px;
-  letter-spacing: 0.05em;
-  color: var(--ink-2);
-}
-@media (max-width: 760px) {
-  .hero-copy .hero-tags { justify-content: flex-start; gap: 8px; margin-bottom: 14px; }
-  .hero-tags .shiny { font-size: 10px; padding: 6px 11px; letter-spacing: 0.03em; }
-  .hero-copy h1 { font-size: clamp(34px, 10.4vw, 48px); line-height: 1; }
-  .lede { font-size: 14px; max-width: 34ch; }
-}
-@media (prefers-reduced-motion: reduce) { .hero-tags .star-top, .hero-tags .star-bottom { animation: none; } .hero-copy h1 .w { animation: none; color: var(--ink); } }
 
 /* Headline: a soft shine sweeps across the letters every few seconds. */
 /* One shine sweeps the whole headline. --p (0..1, animated on the heading) is the highlight's
